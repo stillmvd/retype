@@ -1,5 +1,7 @@
+use crate::journal::Journal;
 use ghbdtn_core::config::Config;
-use ghbdtn_core::trainer::Typing;
+use ghbdtn_core::material::{self, Item};
+use ghbdtn_core::trainer::{self, History, Typing};
 use ghbdtn_core::win::Engine;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::{Path, PathBuf};
@@ -57,6 +59,29 @@ impl Store {
 
     fn save_typing(&self, t: &Typing) -> std::io::Result<()> {
         write(&self.typing, t)
+    }
+
+    fn history(&self) -> History {
+        read(&self.history)
+    }
+
+    fn save_history(&self, h: &History) -> std::io::Result<()> {
+        write(&self.history, h)
+    }
+
+    pub fn material(&self, engine: &Engine, journal: &Journal, minutes: u8) -> Vec<Item> {
+        let minutes = if minutes == 5 { 5 } else { 3 };
+        self.flush(engine);
+        let _io = self.io.lock().unwrap();
+        let date = today();
+        let typing = self.typing();
+        let mut history = self.history();
+        let pairs = trainer::pairs(&typing, &mut history, &date);
+        let _ = self.save_history(&history);
+        let weak = trainer::weak_keys(&pairs);
+        let words = if engine.config().journal { material::journal_words(&journal.typo_words()) } else { Vec::new() };
+        let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as u64);
+        material::build(&material::Sources { weak: &weak, journal: &words, ru_share: trainer::ru_share(&typing, &date), minutes, seed })
     }
 
     pub fn clear(&self, engine: &Engine) {

@@ -35,6 +35,7 @@ export type FlyoutState = {
 };
 
 export type Proc = { exe: string; title: string };
+export type Item = { text: string; lang: "ru" | "en"; kind: "weak" | "journal" | "phrase" | "common"; focus: string[] };
 export type About = { version: string; licenses: { name: string; source: string; license: string }[] };
 
 export const api = {
@@ -50,6 +51,8 @@ export const api = {
   about: () => invoke<About>("about"),
   openSettings: () => invoke<void>("open_settings_cmd"),
   openTrainer: () => invoke<void>("open_trainer_cmd"),
+  trainerMaterial: (minutes: 3 | 5) => invoke<Item[]>("trainer_material", { minutes }),
+  trainerClear: () => invoke<void>("trainer_clear"),
   flyoutReady: () => invoke<void>("flyout_ready"),
 };
 

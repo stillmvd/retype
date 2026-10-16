@@ -6,6 +6,7 @@ pub mod early;
 pub mod gesture;
 pub mod keymap;
 pub mod layout;
+pub mod material;
 pub mod replace;
 pub mod stats;
 pub mod token;

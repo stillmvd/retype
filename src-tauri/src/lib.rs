@@ -278,6 +278,11 @@ pub fn open_settings(app: &AppHandle) {
 }
 
 #[tauri::command]
+async fn trainer_material(s: State<'_, S>, minutes: u8) -> Result<Vec<ghbdtn_core::material::Item>, ()> {
+    Ok(s.trainer.material(&s.engine, &s.journal, minutes))
+}
+
+#[tauri::command]
 fn trainer_clear(s: State<S>) {
     s.trainer.clear(&s.engine);
 }
@@ -475,6 +480,7 @@ pub fn run() {
             open_settings_cmd,
             open_trainer_cmd,
             trainer_clear,
+            trainer_material,
             flyout_ready
         ])
         .setup(|app| {

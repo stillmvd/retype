@@ -67,6 +67,26 @@ impl Journal {
         }
     }
 
+    pub fn typo_words(&self) -> Vec<String> {
+        let Ok(read) = std::fs::read_dir(&self.dir) else { return Vec::new() };
+        let mut files: Vec<PathBuf> = read.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "jsonl")).collect();
+        files.sort();
+        let mut out = Vec::new();
+        for f in files.iter().rev().take(KEEP_DAYS as usize) {
+            let Ok(text) = std::fs::read_to_string(f) else { continue };
+            for line in text.lines() {
+                let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else { continue };
+                let word = match v["ev"].as_str() {
+                    Some("acted") if v["kind"] == "typo" => v["result"].as_str(),
+                    Some("retyped") if v["fix"].is_null() => v["after"].as_str(),
+                    _ => None,
+                };
+                out.extend(word.map(str::to_string));
+            }
+        }
+        out
+    }
+
     pub fn clear(&self) {
         let _ = std::fs::remove_dir_all(&self.dir);
         self.day.lock().unwrap().clear();
