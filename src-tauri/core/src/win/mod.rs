@@ -608,7 +608,15 @@ impl Worker {
         hook::QUEUE.add(started.elapsed());
         let glued = glued || lang::current().is_some_and(|l| l != lang);
         if let Some(e) = edit.filter(|e| !e.text.is_empty() && e.text != e.before) {
-            self.learning.remove(&e.before.trim_end_matches(|c: char| !c.is_alphanumeric()).to_lowercase());
+            let core = |t: &str| t.trim_end_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
+            self.learning.remove(&core(&e.before));
+            let reverted = e.fix.as_ref().map(|(typed, _)| core(typed)).filter(|t| !t.is_empty() && *t == core(&e.text));
+            if let Some(word) = reverted.filter(|w| self.book.note_undo(w)) {
+                let mut c = (*self.cfg()).clone();
+                c.add_never(&word, NeverSource::Undo);
+                self.save(c);
+                self.emit(CoreEvent::NeverAdded(word));
+            }
             self.emit(CoreEvent::Retyped { before: e.before, after: e.text, fix: e.fix });
         }
         let keys = self.word.take();

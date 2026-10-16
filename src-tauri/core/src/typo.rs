@@ -526,7 +526,7 @@ pub fn fix_rule(typed: &str, prev: Option<&str>, lang: Lang, dicts: &Dictionarie
         let second = joint.get(1).map_or(f32::NEG_INFINITY, |x| x.0);
         (ctx >= CTX_MIN && top - second >= JOINT_LEAD).then_some(word)
     };
-    let (cand, rule) = pick(prev, &close, lang, dicts).or_else(|| agree().map(|c| (c, Rule::Joint))).filter(|(c, _)| solid(c, lang, dicts))?;
+    let (cand, rule) = pick(prev, &close, lang, dicts).or_else(|| agree().map(|c| (c, Rule::Joint))).filter(|(c, _)| solid(c, lang, dicts) && (lang == Lang::En || dicts.freq(lang, c) > 0))?;
     if typed_freq > 0 && dicts.freq(lang, cand) < OUTRANK * typed_freq {
         return None;
     }

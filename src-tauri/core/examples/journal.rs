@@ -28,6 +28,7 @@ fn main() {
     let mut silent = BTreeMap::new();
     let mut apps = BTreeMap::new();
     let mut never = BTreeMap::new();
+    let mut tails = BTreeMap::new();
     let mut last_acted: Option<String> = None;
     for f in files {
         let Ok(text) = std::fs::read_to_string(f) else { continue };
@@ -52,14 +53,22 @@ fn main() {
                         *undone.entry(p).or_default() += 1;
                     }
                 }
-                "retyped" => match v["fix"].as_array() {
-                    Some(fix) if fix.len() == 2 => {
-                        let typed = fix[0].as_str().unwrap_or("");
-                        let ours = fix[1].as_str().unwrap_or("");
-                        *wrong.entry(format!("{typed} → {ours}, а нужно {}", s("after"))).or_default() += 1;
+                "retyped" => {
+                    let (before, after) = (s("before").to_lowercase(), s("after").to_lowercase());
+                    let reverted = v["fix"][0].as_str().is_some_and(|t| t.to_lowercase() == after);
+                    let edited_tail = !reverted && (before.starts_with(&after) || after.starts_with(&before));
+                    match v["fix"].as_array() {
+                        Some(fix) if fix.len() == 2 && !edited_tail => {
+                            let typed = fix[0].as_str().unwrap_or("");
+                            let ours = fix[1].as_str().unwrap_or("");
+                            let back = if typed.to_lowercase() == after { "  (вернул набранное)" } else { "" };
+                            *wrong.entry(format!("{typed} → {ours}, а нужно {}{back}", s("after"))).or_default() += 1;
+                        }
+                        _ if edited_tail => *tails.entry(if v["fix"].is_array() { "после исправления" } else { "без исправления" }.to_string()).or_default() += 1,
+                        _ if after.chars().filter(|c| c.is_alphabetic()).count() < 3 => {}
+                        _ => *missed.entry(format!("{} → {}", s("before"), s("after"))).or_default() += 1,
                     }
-                    _ => *missed.entry(format!("{} → {}", s("before"), s("after"))).or_default() += 1,
-                },
+                }
                 "never" => *never.entry(s("word")).or_default() += 1,
                 "silent" => *silent.entry(format!("{}  {}", s("reason"), app)).or_default() += 1,
                 _ => {}
@@ -70,7 +79,8 @@ fn main() {
     top("Действия", &kinds, 20);
     top("Отменены Ctrl+Backspace (ложные исправления)", &undone, 40);
     top("Стёрто сразу после исправления и перепечатано (ложные, с правильным словом)", &wrong, 40);
-    top("Стёрто и перепечатано без исправления (пропущенные опечатки)", &missed, 60);
+    top("Стёрто и перепечатано без исправления (пропущенные опечатки)", &missed, 200);
+    top("Только конец слова или знак после него (не ошибка слова)", &tails, 5);
     top("Ручной Pause (пропущенная раскладка)", &manual, 40);
     top("Ушло в «не трогать»", &never, 40);
     top("Молчал: причина и приложение", &silent, 30);
