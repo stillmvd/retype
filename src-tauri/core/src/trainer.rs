@@ -30,6 +30,7 @@ pub struct History {
     pub weak: BTreeMap<String, String>,
     pub won: BTreeMap<String, String>,
     pub reminded: String,
+    pub offered: bool,
 }
 
 impl Typing {
@@ -159,6 +160,89 @@ pub fn weak_keys(pairs: &[Pair]) -> Vec<(char, char, f32)> {
     pairs.iter().filter(|p| p.state == "weak").filter_map(|p| Some((p.wrong.chars().next()?, p.right.chars().next()?, p.rate))).collect()
 }
 
+pub const REMIND_WORDS: u32 = 100;
+pub const REMIND_IDLE_SECS: u64 = 600;
+
+pub struct Pause {
+    pub words_today: u32,
+    pub idle_secs: u64,
+    pub fullscreen: bool,
+    pub enabled: bool,
+}
+
+pub fn did_today(history: &History, today: &str) -> bool {
+    history.sessions.iter().any(|s| s.date == today && s.done)
+}
+
+pub fn should_remind(history: &History, today: &str, p: &Pause) -> bool {
+    p.enabled && !p.fullscreen && p.words_today >= REMIND_WORDS && p.idle_secs >= REMIND_IDLE_SECS && history.reminded != today && !did_today(history, today)
+}
+
+pub fn streak(history: &History, today: &str) -> u32 {
+    let Some(t) = day_number(today) else { return 0 };
+    let done: std::collections::HashSet<i64> = history.sessions.iter().filter(|s| s.done).filter_map(|s| day_number(&s.date)).collect();
+    let start = if done.contains(&t) { t } else { t - 1 };
+    (0..).take_while(|i| done.contains(&(start - i))).count() as u32
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Week {
+    pub week: String,
+    pub words: u32,
+    pub misses: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct DayResult {
+    pub date: String,
+    pub accuracy: f32,
+    pub cpm: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct State {
+    pub counting: bool,
+    pub remind: bool,
+    pub minutes: u8,
+    pub first_run: bool,
+    pub has_journal: bool,
+    pub streak: u32,
+    pub today: bool,
+    pub weeks: Vec<Week>,
+    pub days: Vec<DayResult>,
+    pub pairs: Vec<Pair>,
+}
+
+pub fn weeks(typing: &Typing) -> Vec<Week> {
+    let mut by: BTreeMap<String, Week> = BTreeMap::new();
+    for (date, day) in &typing.days {
+        let Some(w) = crate::stats::week_start(date) else { continue };
+        let e = by.entry(w.clone()).or_insert(Week { week: w, words: 0, misses: 0 });
+        e.words += day.words;
+        e.misses += day.misses;
+    }
+    by.into_values().filter(|w| w.words > 0).collect()
+}
+
+pub fn days(history: &History) -> Vec<DayResult> {
+    let mut by: BTreeMap<String, (f32, u32, u32)> = BTreeMap::new();
+    for s in history.sessions.iter().filter(|s| s.done) {
+        let e = by.entry(s.date.clone()).or_default();
+        e.0 += s.accuracy;
+        e.1 += s.cpm;
+        e.2 += 1;
+    }
+    by.into_iter().map(|(date, (a, c, n))| DayResult { date, accuracy: a / n as f32, cpm: c / n }).collect()
+}
+
+pub fn finish(history: &mut History, mut session: Session, today: &str) {
+    session.date = today.to_string();
+    session.accuracy = session.accuracy.clamp(0.0, 1.0);
+    history.sessions.push(session);
+    history.prune(today);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -225,6 +309,36 @@ mod tests {
         t.days.insert(date(0), day(100, 5));
         let p = pairs(&t, &mut h, today);
         assert_eq!(p.iter().map(|p| p.state).collect::<Vec<_>>(), ["weak"]);
+    }
+
+    #[test]
+    fn remind_streak_weeks() {
+        let today = "2026-10-17";
+        let mut h = History::default();
+        let p = Pause { words_today: 150, idle_secs: 700, fullscreen: false, enabled: true };
+        assert!(should_remind(&h, today, &p));
+        assert!(!should_remind(&h, today, &Pause { words_today: 99, ..p }));
+        assert!(!should_remind(&h, today, &Pause { idle_secs: 300, ..p }));
+        assert!(!should_remind(&h, today, &Pause { fullscreen: true, ..p }));
+        assert!(!should_remind(&h, today, &Pause { enabled: false, ..p }));
+        h.reminded = today.into();
+        assert!(!should_remind(&h, today, &p));
+        h.reminded.clear();
+        let s = |n: i64, done: bool| Session { date: date(n), done, accuracy: 0.9, cpm: 200, ..Session::default() };
+        h.sessions = vec![s(3, true), s(2, true), s(1, true), s(0, false)];
+        assert!(should_remind(&h, today, &p));
+        assert_eq!(streak(&h, today), 3);
+        finish(&mut h, s(0, true), today);
+        assert!(!should_remind(&h, today, &p));
+        assert_eq!(streak(&h, today), 4);
+        h.sessions.retain(|x| x.date != date(2));
+        assert_eq!(streak(&h, today), 2);
+        assert_eq!(days(&h).len(), 3);
+        let mut t = Typing::default();
+        t.days.insert("2026-10-12".into(), Day { words: 100, misses: 4, ..Day::default() });
+        t.days.insert("2026-10-17".into(), Day { words: 100, misses: 2, ..Day::default() });
+        t.days.insert("2026-10-11".into(), Day { words: 50, misses: 5, ..Day::default() });
+        assert_eq!(weeks(&t), [Week { week: "2026-10-05".into(), words: 50, misses: 5 }, Week { week: "2026-10-12".into(), words: 200, misses: 6 }]);
     }
 
     #[test]

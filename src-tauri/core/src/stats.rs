@@ -153,6 +153,25 @@ pub fn day_number(date: &str) -> Option<i64> {
     Some(365 * y + y / 4 - y / 100 + y / 400 + (153 * m + 2) / 5 + d)
 }
 
+pub fn date_of(n: i64) -> String {
+    let z = n - 1;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("{y:04}-{m:02}-{d:02}")
+}
+
+pub fn week_start(date: &str) -> Option<String> {
+    let n = day_number(date)?;
+    let monday = day_number("2026-10-12")?;
+    Some(date_of(n - (n - monday).rem_euclid(7)))
+}
+
 pub fn keep_recent<T>(days: &mut BTreeMap<String, T>, today: &str, keep: i64) {
     let Some(t) = day_number(today) else { return };
     days.retain(|d, _| day_number(d).is_some_and(|n| t - n <= keep));
@@ -168,6 +187,13 @@ mod tests {
         assert_eq!(split_pair("ab"), None);
         assert_eq!(day_number("2026-03-01").unwrap() - day_number("2026-02-28").unwrap(), 1);
         assert_eq!(day_number("2027-01-01").unwrap() - day_number("2026-01-01").unwrap(), 365);
+        for d in ["2024-02-29", "2026-01-01", "2026-03-01", "2026-10-17", "2026-12-31", "2000-02-29"] {
+            assert_eq!(date_of(day_number(d).unwrap()), d);
+        }
+        assert_eq!(week_start("2026-10-17").as_deref(), Some("2026-10-12"));
+        assert_eq!(week_start("2026-10-12").as_deref(), Some("2026-10-12"));
+        assert_eq!(week_start("2026-10-11").as_deref(), Some("2026-10-05"));
+        assert_eq!(week_start("2026-01-01").as_deref(), Some("2025-12-29"));
         let mut m = BTreeMap::from([("2025-10-16".to_string(), 1), ("2025-10-17".to_string(), 2), ("2026-10-17".to_string(), 3)]);
         keep_recent(&mut m, "2026-10-17", 365);
         assert_eq!(m.keys().collect::<Vec<_>>(), ["2025-10-17", "2026-10-17"]);
