@@ -11,6 +11,7 @@ use crate::gesture::DoubleShift;
 use crate::dict::Dictionaries;
 use crate::keymap::{char_of, convert_text, script_of, Lang};
 use crate::layout::{short_alongside, split_tail};
+use crate::stats::{Counter, Day};
 use crate::undo::{Action, ActionKind, UndoBook};
 use crate::word::{render, separator_kind, Key, Separator, Word};
 use crate::words::learnable;
@@ -39,6 +40,7 @@ pub enum SilentReason {
     Elevated,
     OtherLayout,
     NoRuEn,
+    Own,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -65,6 +67,7 @@ pub struct Engine {
     control: Sender<HookEvent>,
     fresh: Fresh,
     words_gen: Arc<AtomicU64>,
+    tally: Arc<Mutex<Day>>,
 }
 
 type Fresh = Arc<Mutex<Option<Dictionaries>>>;
@@ -80,11 +83,13 @@ impl Engine {
         let shared = config.clone();
         let fresh = Fresh::default();
         let slot = fresh.clone();
+        let tally: Arc<Mutex<Day>> = Arc::default();
+        let sink = tally.clone();
         std::thread::Builder::new()
             .name("ghbdtn-engine".into())
-            .spawn(move || Worker::new(shared, path, events, slot).run(rx))
+            .spawn(move || Worker::new(shared, path, events, slot, sink).run(rx))
             .expect("engine thread");
-        Engine { config, control: tx, fresh, words_gen: Arc::default() }
+        Engine { config, control: tx, fresh, words_gen: Arc::default(), tally }
     }
 
     pub fn reload_words(&self, text: String) {
@@ -112,6 +117,10 @@ impl Engine {
 
     pub fn stop(&self) {
         hook::stop();
+    }
+
+    pub fn take_tally(&self) -> Day {
+        std::mem::take(&mut *self.tally.lock().unwrap())
     }
 }
 
@@ -165,6 +174,8 @@ struct Worker {
     status: Option<Status>,
     last_key: Instant,
     last_watch: Instant,
+    counter: Counter,
+    tally: Arc<Mutex<Day>>,
 }
 
 fn is_nav(vk: VIRTUAL_KEY) -> bool {
@@ -189,7 +200,7 @@ fn is_modifier(vk: VIRTUAL_KEY) -> bool {
 }
 
 impl Worker {
-    fn new(config: Arc<ArcSwap<Config>>, path: PathBuf, events: Sender<CoreEvent>, fresh: Fresh) -> Worker {
+    fn new(config: Arc<ArcSwap<Config>>, path: PathBuf, events: Sender<CoreEvent>, fresh: Fresh, tally: Arc<Mutex<Day>>) -> Worker {
         Worker {
             config,
             path: path.clone(),
@@ -224,6 +235,15 @@ impl Worker {
             status: None,
             last_key: Instant::now(),
             last_watch: Instant::now(),
+            counter: Counter::default(),
+            tally,
+        }
+    }
+
+    fn flush_tally(&mut self) {
+        if !self.counter.day.is_empty() {
+            let day = self.counter.take();
+            self.tally.lock().unwrap().merge(&day);
         }
     }
 
@@ -234,6 +254,7 @@ impl Worker {
             ENABLED.store(cfg.enabled, SeqCst);
             hook::HK_CONVERT.store(hook::parse_hotkey(&cfg.hotkeys.convert).unwrap_or(0), SeqCst);
             hook::HK_TOGGLE.store(hook::parse_hotkey(&cfg.hotkeys.toggle).unwrap_or(0), SeqCst);
+            self.counter.full = cfg.trainer.count;
             self.extra_for = Some(cfg.clone());
         }
         cfg
@@ -259,6 +280,8 @@ impl Worker {
             Status::Disabled
         } else if !lang::has_ru_en() {
             Status::Silent(SilentReason::NoRuEn)
+        } else if ctx.own {
+            Status::Silent(SilentReason::Own)
         } else if mode == Mode::Off {
             Status::Silent(SilentReason::Process)
         } else if ctx.password {
@@ -297,9 +320,16 @@ impl Worker {
         self.book.close();
         ARMED_UNDO.store(false, SeqCst);
         PENDING.store(false, SeqCst);
+        self.counter.reset();
+        self.flush_tally();
     }
 
     fn back(&mut self) {
+        let removed = match self.word.keys().last().zip(self.word_lang) {
+            Some((k, l)) => k.char_in(l),
+            None => self.edit.as_ref().or(self.tail.as_ref()).filter(|e| e.fix.is_none()).and_then(|e| e.text.chars().last()),
+        };
+        self.counter.back(removed);
         if !self.word.is_empty() {
             self.word.backspace();
             if self.word.is_empty() {
@@ -530,8 +560,11 @@ impl Worker {
             if self.word.is_empty() {
                 return self.reset();
             }
-            if let (Some(e), Some(c)) = (self.edit.as_mut(), key.char_in(lang)) {
-                e.text.push(c);
+            if let Some(c) = key.char_in(lang) {
+                self.counter.letter(c);
+                if let Some(e) = self.edit.as_mut() {
+                    e.text.push(c);
+                }
             }
             if self.early.is_none() && self.edit.is_none() && !self.glued {
                 let input = WordInput { keys: self.word.keys(), lang, code_mode: self.mode == Mode::Code, prev: None };
@@ -603,9 +636,12 @@ impl Worker {
                     t
                 });
             }
+            self.counter.word_end(false);
+            self.flush_tally();
             return;
         };
         hook::QUEUE.add(started.elapsed());
+        let counted = edit.is_none();
         let glued = glued || lang::current().is_some_and(|l| l != lang);
         if let Some(e) = edit.filter(|e| !e.text.is_empty() && e.text != e.before) {
             let core = |t: &str| t.trim_end_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
@@ -625,6 +661,11 @@ impl Worker {
         let fix = (status == Status::Working && !keys.is_empty() && !glued && (sep != Separator::Enter || enter_eaten) && !early.as_ref().is_some_and(|e| e.undone))
             .then(|| hook::DECIDE.time(|| decide(&WordInput { keys: &keys, lang, code_mode: mode == Mode::Code, prev: self.ctx.as_deref() }, &self.dicts, &cfg)))
             .flatten();
+        if early.is_some() || fix.as_ref().is_some_and(|f| f.kind == ActionKind::Layout) {
+            self.counter.drop_word();
+        }
+        self.counter.word_end(counted);
+        self.flush_tally();
         let word_like = |t: &str| t.chars().all(|c| c.is_alphabetic() || c == '-') || t.chars().all(|c| c.is_ascii_digit());
         let plain = |t: &str| (sep == Separator::Space && !glued && word_like(t)).then(|| t.to_string());
         self.ctx = match &fix {
@@ -686,6 +727,10 @@ impl Worker {
                     };
                     self.book.record(action);
                     ARMED_UNDO.store(true, SeqCst);
+                }
+                if fix.kind == ActionKind::Typo {
+                    self.counter.typo_fixed(&fix.typed, &fix.text);
+                    self.flush_tally();
                 }
                 self.emit(CoreEvent::Acted { kind: fix.kind, rule: Some(fix.rule), typed: fix.typed.clone(), result: fix.text.clone() });
                 self.last = None;

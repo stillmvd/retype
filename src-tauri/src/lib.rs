@@ -1,6 +1,7 @@
 mod journal;
 mod overlay;
 mod sys;
+mod trainer;
 mod tray;
 
 use crossbeam_channel::Sender;
@@ -36,6 +37,7 @@ struct Shared {
     journal: journal::Journal,
     ru: std::sync::atomic::AtomicBool,
     words: Mutex<()>,
+    trainer: trainer::Store,
 }
 
 type S = Arc<Shared>;
@@ -65,6 +67,7 @@ fn reason(r: SilentReason) -> &'static str {
         SilentReason::Elevated => "elevated",
         SilentReason::OtherLayout => "layout",
         SilentReason::NoRuEn => "noruen",
+        SilentReason::Own => "own",
     }
 }
 
@@ -77,7 +80,7 @@ fn state(s: &Shared) -> (&'static str, Option<&'static str>) {
         return ("silent", Some("process"));
     }
     match *s.status.lock().unwrap() {
-        Status::Silent(r) if r != SilentReason::Process => ("silent", Some(reason(r))),
+        Status::Silent(r) if !matches!(r, SilentReason::Process | SilentReason::Own) => ("silent", Some(reason(r))),
         _ => ("working", None),
     }
 }
@@ -271,19 +274,37 @@ async fn open_settings_cmd(app: AppHandle) {
 }
 
 pub fn open_settings(app: &AppHandle) {
+    open_window(app, "settings", "Ghbdtn", (880.0, 620.0), (720.0, 520.0));
+}
+
+#[tauri::command]
+fn trainer_clear(s: State<S>) {
+    s.trainer.clear(&s.engine);
+}
+
+#[tauri::command]
+async fn open_trainer_cmd(app: AppHandle) {
+    open_trainer(&app);
+}
+
+pub fn open_trainer(app: &AppHandle) {
+    open_window(app, "trainer", "Тренажёр — Ghbdtn", (880.0, 620.0), (720.0, 520.0));
+}
+
+fn open_window(app: &AppHandle, label: &str, title: &str, size: (f64, f64), min: (f64, f64)) {
     if let Some(w) = app.get_webview_window("flyout") {
         let _ = w.destroy();
     }
-    if let Some(w) = app.get_webview_window("settings") {
+    if let Some(w) = app.get_webview_window(label) {
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
         return;
     }
-    let _ = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("index.html".into()))
-        .title("Ghbdtn")
-        .inner_size(880.0, 620.0)
-        .min_inner_size(720.0, 520.0)
+    let _ = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+        .title(title)
+        .inner_size(size.0, size.1)
+        .min_inner_size(min.0, min.1)
         .decorations(false)
         .center()
         .build();
@@ -395,7 +416,7 @@ fn pump(app: AppHandle, s: S, rx: crossbeam_channel::Receiver<CoreEvent>) {
                     journal::Entry::Retyped { before, after, fix: fix.as_ref().map(|(a, b)| (a.as_str(), b.as_str())) },
                 ),
                 CoreEvent::NeverAdded(word) => s.journal.write(app, journal::Entry::Never { word }),
-                CoreEvent::Status(Status::Silent(r)) => s.journal.write(app, journal::Entry::Silent { reason: reason(*r) }),
+                CoreEvent::Status(Status::Silent(r)) if *r != SilentReason::Own => s.journal.write(app, journal::Entry::Silent { reason: reason(*r) }),
                 _ => {}
             }
         }
@@ -452,6 +473,8 @@ pub fn run() {
             list_processes,
             about,
             open_settings_cmd,
+            open_trainer_cmd,
+            trainer_clear,
             flyout_ready
         ])
         .setup(|app| {
@@ -470,6 +493,7 @@ pub fn run() {
                 journal: journal::Journal::new(),
                 ru: std::sync::atomic::AtomicBool::new(true),
                 words: Mutex::new(()),
+                trainer: trainer::Store::new(),
             });
             app.manage(shared.clone());
 
@@ -481,13 +505,21 @@ pub fn run() {
             std::thread::Builder::new().name("ghbdtn-events".into()).spawn(move || pump(a, s, rx))?;
             let (a, s) = (handle.clone(), shared.clone());
             std::thread::Builder::new().name("ghbdtn-watch".into()).spawn(move || watch(a, s))?;
+            let s = shared.clone();
+            std::thread::Builder::new().name("ghbdtn-tally".into()).spawn(move || loop {
+                std::thread::sleep(Duration::from_secs(60));
+                s.trainer.flush(&s.engine);
+            })?;
             Ok(())
         })
         .build(tauri::generate_context!())
         .expect("ghbdtn")
-        .run(|_, event| {
-            if let tauri::RunEvent::ExitRequested { api, code: None, .. } = event {
-                api.prevent_exit();
+        .run(|app, event| match event {
+            tauri::RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
+            tauri::RunEvent::Exit => {
+                let s = app.state::<S>();
+                s.trainer.flush(&s.engine);
             }
+            _ => {}
         });
 }

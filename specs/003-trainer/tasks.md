@@ -12,23 +12,23 @@ description: "Задачи фичи 003-trainer"
 
 ## Phase 1: Setup
 
-- [ ] T001 `Config.trainer { count: bool = false, remind: bool = true, minutes: u8 = 3 }` («только 3 или 5» —
+- [x] T001 `Config.trainer { count: bool = false, remind: bool = true, minutes: u8 = 3 }` («только 3 или 5» —
   проверка в `Config::validate`), serde default для старых конфигов, тест загрузки старого конфига — в
   `src-tauri/core/src/config.rs`; тип в `src/api.ts`
-- [ ] T002 [P] Пример `src-tauri/core/examples/phrases.rs`: из выгрузки Tatoeba (`sentences.csv`, путь аргументом)
+- [x] T002 [P] Пример `src-tauri/core/examples/phrases.rs`: из выгрузки Tatoeba (`sentences.csv`, путь аргументом)
   отобрать по ~2000 предложений ru и en длиной 20–80 знаков, только буквы своего алфавита, пробел и `, . ? ! - :`,
   без повторов → `src-tauri/core/data/ru.phrases`, `en.phrases`; строка лицензии (Tatoeba, CC BY 2.0 FR) в списке
   `licenses` команды `about` (`src-tauri/src/lib.rs`) и в `src-tauri/core/data/LICENSES.md`
 
 ## Phase 2: Foundational
 
-- [ ] T003 `SilentReason::Own`: `Worker::evaluate` молчит, если окно в фокусе — своего процесса (pid из
+- [x] T003 `SilentReason::Own`: `Worker::evaluate` молчит, если окно в фокусе — своего процесса (pid из
   `context::current()` против `GetCurrentProcessId`) — `src-tauri/core/src/win/context.rs`, `win/mod.rs`; в журнал
   и меню трея не выводится (`src-tauri/src/lib.rs::reason/state`)
-- [ ] T004 Окно `trainer` по требованию: `open_trainer_cmd` и `open_trainer(app)` по образцу `open_settings`
+- [x] T004 Окно `trainer` по требованию: `open_trainer_cmd` и `open_trainer(app)` по образцу `open_settings`
   (`src-tauri/src/lib.rs`), ветка `label === "trainer"` в `src/main.tsx`, заглушка `src/trainer/Trainer.tsx`,
-  `api.openTrainer`; пункт «Тренажёр» в меню трея `src/flyout/Flyout.tsx`
-- [ ] T005 Модуль оболочки `src-tauri/src/trainer.rs`: чтение/запись `typing.json` и `trainer.json`
+  `api.openTrainer` (пункт «Тренажёр» в меню трея — после стенда, в T021)
+- [x] T005 Модуль оболочки `src-tauri/src/trainer.rs`: чтение/запись `typing.json` и `trainer.json`
   (`%APPDATA%\Ghbdtn`, формат data-model.md), обрезка дней старше 365 при записи, атомарная запись (tmp + rename)
 
 **Checkpoint**: окно открывается из трея, в нём ядро молчит.
@@ -38,17 +38,17 @@ description: "Задачи фичи 003-trainer"
 **Goal**: по тумблеру ядро копит числа без текста, оболочка пишет их по дням.
 **Independent Test**: quickstart п. 4–5.
 
-- [ ] T006 [US2] Чистый автомат `src-tauri/core/src/stats.rs`: события `letter(c)`, `back`, `word_end`, `reset`,
+- [x] T006 [US2] Чистый автомат `src-tauri/core/src/stats.rs`: события `letter(c)`, `back`, `word_end`, `reset`,
   `typo_fixed(typed, result)`; выравнивание по R2 (пара только при равных сериях и разных буквах; передумал — не
   промах; сброс теряет серию); итог `Tally { words, misses, pairs, presses }`; тесты: замена, две замены, пропуск,
   лишняя, передумал, сброс, исправление ядром одной заменой и не одной
-- [ ] T007 [US2] Подключение в `Worker` (`src-tauri/core/src/win/mod.rs`): `key` (буква → `letter`, Backspace →
+- [x] T007 [US2] Подключение в `Worker` (`src-tauri/core/src/win/mod.rs`): `key` (буква → `letter`, Backspace →
   `back`), `finish` (`word_end`; слово не в той раскладке и его исправление не промах), `reset`, `Acted { Typo }` →
   `typo_fixed`; только при `cfg.trainer.count` и статусе `Working`; `Tally` в `Arc<Mutex<Tally>>`, доступ из
   `Engine::tally()`; счёт слов за день для напоминания — всегда, только в памяти
-- [ ] T008 [US2] Слив `Tally` в `typing.json` раз в минуту и при выходе (`src-tauri/src/trainer.rs`, поток в
+- [x] T008 [US2] Слив `Tally` в `typing.json` раз в минуту и при выходе (`src-tauri/src/trainer.rs`, поток в
   `src-tauri/src/lib.rs::run`), только при `trainer.count`
-- [ ] T009 [US2] `trainer_clear` — удалить оба файла и обнулить `Tally` (`src-tauri/src/trainer.rs`, регистрация в
+- [x] T009 [US2] `trainer_clear` — удалить оба файла и обнулить `Tally` (`src-tauri/src/trainer.rs`, регистрация в
   `lib.rs`)
 
 **Checkpoint**: счётчики пишутся, пароли/«не трогать»/полный экран не считаются.
@@ -110,7 +110,7 @@ description: "Задачи фичи 003-trainer"
 
 ## Phase 9: Polish
 
-- [ ] T021 Раздел «Тренажёр» в настройках `src/settings/Settings.tsx` по стенду: «Считать ошибки печати»,
+- [ ] T021 Пункт «Тренажёр» в меню трея `src/flyout/Flyout.tsx` и раздел «Тренажёр» в настройках `src/settings/Settings.tsx` по стенду: «Считать ошибки печати»,
   «Напоминать о разминке», «Стереть данные тренажёра»
 - [ ] T022 Приёмка: quickstart вручную (с пользователем), проверка диска SC-005, стенд `rivals` SC-004 (с согласия),
   `quickstart.md` обновить

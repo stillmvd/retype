@@ -1,3 +1,4 @@
+use ghbdtn_core::stats::day_number;
 use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
@@ -38,13 +39,6 @@ pub struct Journal {
     day: Mutex<String>,
 }
 
-fn days(date: &str) -> Option<i64> {
-    let mut it = date.splitn(3, '-').map(|p| p.parse::<i64>().ok());
-    let (y, m, d) = (it.next()??, it.next()??, it.next()??);
-    let (y, m) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
-    Some(365 * y + y / 4 - y / 100 + y / 400 + (153 * m + 2) / 5 + d)
-}
-
 impl Journal {
     pub fn new() -> Journal {
         let dir = ghbdtn_core::config::Config::default_path().with_file_name("log");
@@ -81,7 +75,7 @@ impl Journal {
     fn prune(&self, today: &str) {
         let Ok(read) = std::fs::read_dir(&self.dir) else { return };
         let today_name = today.to_string();
-        let today = days(today).unwrap_or(0);
+        let today = day_number(today).unwrap_or(0);
         let mut files: Vec<(String, PathBuf, u64)> = read
             .flatten()
             .filter_map(|e| {
@@ -93,7 +87,7 @@ impl Journal {
             .collect();
         files.sort();
         files.retain(|(name, path, _)| {
-            let old = days(name).is_some_and(|d| today - d > KEEP_DAYS);
+            let old = day_number(name).is_some_and(|d| today - d > KEEP_DAYS);
             if old {
                 let _ = std::fs::remove_file(path);
             }

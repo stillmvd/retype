@@ -20,6 +20,20 @@ impl Default for Features {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Trainer {
+    pub count: bool,
+    pub remind: bool,
+    pub minutes: u8,
+}
+
+impl Default for Trainer {
+    fn default() -> Self {
+        Trainer { count: false, remind: true, minutes: 3 }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Sensitivity {
@@ -178,6 +192,7 @@ pub struct Config {
     pub processes: Processes,
     pub sensitivity: Sensitivity,
     pub programs: Vec<Program>,
+    pub trainer: Trainer,
 }
 
 impl Default for Config {
@@ -195,6 +210,7 @@ impl Default for Config {
             processes: Processes::default(),
             sensitivity: Sensitivity::Normal,
             programs: default_programs(),
+            trainer: Trainer::default(),
         }
     }
 }
@@ -271,6 +287,9 @@ impl Config {
         let mut seen = std::collections::HashSet::new();
         self.programs.retain(|p| p.exe != ".exe" && seen.insert(p.exe.clone()));
         self.programs.sort_by(|a, b| a.exe.cmp(&b.exe));
+        if self.trainer.minutes != 5 {
+            self.trainer.minutes = 3;
+        }
     }
 
     pub fn validate(&self) -> Result<(), Vec<ConfigError>> {
@@ -393,6 +412,19 @@ mod tests {
         let n = cfg.program_for("notepad.exe");
         assert_eq!((n.insert, n.delay_ms, n.retries), (Insert::Keys, MAX_DELAY_MS, 1));
         assert_eq!(cfg.programs.iter().filter(|p| p.exe == "notepad.exe").count(), 1);
+    }
+
+    #[test]
+    fn trainer_defaults_and_minutes() {
+        let cfg: Config = toml::from_str("enabled = true").unwrap();
+        assert_eq!(cfg.trainer, Trainer::default());
+        let mut cfg: Config = toml::from_str("[trainer]\ncount = true\nminutes = 4").unwrap();
+        cfg.normalize();
+        assert!(cfg.trainer.count && cfg.trainer.remind);
+        assert_eq!(cfg.trainer.minutes, 3);
+        cfg.trainer.minutes = 5;
+        cfg.normalize();
+        assert_eq!(cfg.trainer.minutes, 5);
     }
 
     #[test]

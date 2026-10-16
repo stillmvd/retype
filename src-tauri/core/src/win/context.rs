@@ -8,7 +8,7 @@ use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORI
 use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
 use windows::Win32::System::Threading::{
-    GetCurrentProcess, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+    GetCurrentProcess, GetCurrentProcessId, OpenProcess, OpenProcessToken, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
     PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::Accessibility::{
@@ -25,6 +25,7 @@ pub struct Context {
     pub elevated: bool,
     pub fullscreen: bool,
     pub password: bool,
+    pub own: bool,
 }
 
 static SENDER: OnceLock<Sender<HookEvent>> = OnceLock::new();
@@ -160,7 +161,7 @@ fn compute() -> Context {
         }
         let mut info = GUITHREADINFO { cbSize: std::mem::size_of::<GUITHREADINFO>() as u32, ..Default::default() };
         let focus = if GetGUIThreadInfo(thread, &mut info).is_ok() { info.hwndFocus } else { HWND::default() };
-        Context { exe, elevated: elevated(pid), fullscreen: fullscreen(hwnd), password: password(focus) }
+        Context { exe, elevated: elevated(pid), fullscreen: fullscreen(hwnd), password: password(focus), own: pid == GetCurrentProcessId() }
     }
 }
 

@@ -9,6 +9,7 @@
 | `terms.txt` | [cspell-dicts](https://github.com/streetsidesoftware/cspell-dicts): software-terms, companies, fullstack, npm, node, python, rust, docker, k8s, aws, golang, typescript | MIT |
 | `tech.txt`, `ru-it.dic` | составлены для Ghbdtn | как у проекта |
 | `ru.bigram`, `ru.bigram.words`, `en.bigram`, `en.bigram.words` | пары соседних слов, посчитаны `examples/bigrams.rs` из [Leipzig Corpora Collection](https://wortschatz.uni-leipzig.de/en/download) rus-ru_web-public_2019_1M, rus_news_2024_1M, eng-com_web-public_2018_1M, eng_news_2024_1M (D. Goldhahn, T. Eckart, U. Quasthoff, LREC 2012) | CC BY |
+| `ru.phrases`, `en.phrases` | предложения [Tatoeba](https://tatoeba.org), отобраны `examples/phrases.rs` (20–80 знаков, частые слова, только печатаемые знаки; длинное тире заменено дефисом) | CC BY 2.0 FR |
 | `ru.freq`, `en.freq` | [FrequencyWords](https://github.com/hermitdave/FrequencyWords) 2018, © Hermit Dave, на основе OpenSubtitles | CC-BY-SA-4.0 |
 
 `ru.freq` и `en.freq` изменены: оставлены только слова из букв, взяты первые 150 000 (ru) и 100 000 (en)

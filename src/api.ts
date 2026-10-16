@@ -15,6 +15,7 @@ export type Config = {
   processes: { off: string[]; code: string[] };
   sensitivity: Sensitivity;
   programs: Program[];
+  trainer: { count: boolean; remind: boolean; minutes: 3 | 5 };
 };
 
 export type Sensitivity = "careful" | "normal" | "bold";
@@ -48,6 +49,7 @@ export const api = {
   listProcesses: () => invoke<Proc[]>("list_processes"),
   about: () => invoke<About>("about"),
   openSettings: () => invoke<void>("open_settings_cmd"),
+  openTrainer: () => invoke<void>("open_trainer_cmd"),
   flyoutReady: () => invoke<void>("flyout_ready"),
 };
 
