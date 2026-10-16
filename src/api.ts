@@ -36,6 +36,27 @@ export type FlyoutState = {
 
 export type Proc = { exe: string; title: string };
 export type Item = { text: string; lang: "ru" | "en"; kind: "weak" | "journal" | "phrase" | "common"; focus: string[] };
+export type Pair = { wrong: string; right: string; rate: number; state: "weak" | "won"; since?: string };
+export type TrainerState = {
+  counting: boolean;
+  remind: boolean;
+  minutes: 3 | 5;
+  firstRun: boolean;
+  hasJournal: boolean;
+  streak: number;
+  today: boolean;
+  weeks: { week: string; words: number; misses: number }[];
+  days: { date: string; accuracy: number; cpm: number }[];
+  pairs: Pair[];
+};
+export type Session = {
+  seconds: number;
+  done: boolean;
+  accuracy: number;
+  cpm: number;
+  pairs: Record<string, number>;
+  presses: Record<string, number>;
+};
 export type About = { version: string; licenses: { name: string; source: string; license: string }[] };
 
 export const api = {
@@ -52,7 +73,10 @@ export const api = {
   openSettings: () => invoke<void>("open_settings_cmd"),
   openTrainer: () => invoke<void>("open_trainer_cmd"),
   trainerMaterial: (minutes: 3 | 5) => invoke<Item[]>("trainer_material", { minutes }),
-  trainerClear: () => invoke<void>("trainer_clear"),
+  trainerState: () => invoke<TrainerState>("trainer_state"),
+  trainerFinish: (session: Session) => invoke<TrainerState>("trainer_finish", { session }),
+  trainerOfferSeen: () => invoke<TrainerState>("trainer_offer_seen"),
+  trainerClear: () => invoke<TrainerState>("trainer_clear"),
   flyoutReady: () => invoke<void>("flyout_ready"),
 };
 

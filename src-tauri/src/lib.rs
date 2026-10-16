@@ -1,4 +1,5 @@
 mod journal;
+mod notify;
 mod overlay;
 mod sys;
 mod trainer;
@@ -283,8 +284,47 @@ async fn trainer_material(s: State<'_, S>, minutes: u8) -> Result<Vec<ghbdtn_cor
 }
 
 #[tauri::command]
-fn trainer_clear(s: State<S>) {
-    s.trainer.clear(&s.engine);
+async fn trainer_state(s: State<'_, S>) -> Result<ghbdtn_core::trainer::State, ()> {
+    Ok(s.trainer.state(&s.engine))
+}
+
+#[tauri::command]
+async fn trainer_finish(s: State<'_, S>, session: ghbdtn_core::trainer::Session) -> Result<ghbdtn_core::trainer::State, ()> {
+    Ok(s.trainer.finish(&s.engine, session))
+}
+
+#[tauri::command]
+async fn trainer_offer_seen(s: State<'_, S>) -> Result<ghbdtn_core::trainer::State, ()> {
+    Ok(s.trainer.offer_seen(&s.engine))
+}
+
+#[tauri::command]
+async fn trainer_clear(s: State<'_, S>) -> Result<ghbdtn_core::trainer::State, ()> {
+    Ok(s.trainer.clear(&s.engine))
+}
+
+fn tally_loop(app: AppHandle, s: S) {
+    let mut tick = 0u32;
+    let mut was_idle = 0u64;
+    let mut _toast = None;
+    loop {
+        std::thread::sleep(Duration::from_secs(5));
+        tick += 1;
+        if tick.is_multiple_of(12) {
+            s.trainer.flush(&s.engine);
+        }
+        let Some(idle) = trainer::idle_secs() else { continue };
+        if idle < was_idle && was_idle >= ghbdtn_core::trainer::REMIND_IDLE_SECS {
+            if let Some(body) = s.trainer.remind(&s.engine, was_idle) {
+                let a = app.clone();
+                if let Ok(t) = notify::reminder("Пора размяться", &body, move || open_trainer(&a)) {
+                    s.trainer.reminded();
+                    _toast = Some(t);
+                }
+            }
+        }
+        was_idle = idle;
+    }
 }
 
 #[tauri::command]
@@ -480,7 +520,10 @@ pub fn run() {
             open_settings_cmd,
             open_trainer_cmd,
             trainer_clear,
+            trainer_finish,
             trainer_material,
+            trainer_offer_seen,
+            trainer_state,
             flyout_ready
         ])
         .setup(|app| {
@@ -511,11 +554,8 @@ pub fn run() {
             std::thread::Builder::new().name("ghbdtn-events".into()).spawn(move || pump(a, s, rx))?;
             let (a, s) = (handle.clone(), shared.clone());
             std::thread::Builder::new().name("ghbdtn-watch".into()).spawn(move || watch(a, s))?;
-            let s = shared.clone();
-            std::thread::Builder::new().name("ghbdtn-tally".into()).spawn(move || loop {
-                std::thread::sleep(Duration::from_secs(60));
-                s.trainer.flush(&s.engine);
-            })?;
+            let (a, s) = (handle.clone(), shared.clone());
+            std::thread::Builder::new().name("ghbdtn-tally".into()).spawn(move || tally_loop(a, s))?;
             Ok(())
         })
         .build(tauri::generate_context!())

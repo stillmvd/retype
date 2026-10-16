@@ -85,7 +85,7 @@ description: "Задачи фичи 003-trainer"
   букве, повтор слова с ошибкой позже, таймер 3/5 и дописать текущее слово, подсказка раскладки по
   `KeyboardEvent.key`/`code` без ошибки (R7), палец по `code` только для `focus` (R6), итог (точность, знаков в
   минуту, пары) → `trainer_finish`
-- [ ] T015 [US1] `trainer_finish` и `trainer_state` (`src-tauri/src/trainer.rs`): запись разминки (`done`, точность,
+- [x] T015 [US1] `trainer_finish` и `trainer_state` (`src-tauri/src/trainer.rs`): запись разминки (`done`, точность,
   cpm, пары, нажатия), пересчёт пар и `won`; стартовый экран с предложением счёта при `firstRun`
 
 ## Phase 7: User Story 3 — Прогресс (P2)
@@ -93,7 +93,7 @@ description: "Задачи фичи 003-trainer"
 **Goal**: видно, что ошибок стало меньше.
 **Independent Test**: quickstart п. 7.
 
-- [ ] T016 [US3] `trainer_state`: недели (`words`, `misses`), дни тренажёра, пары со статусом — `src-tauri/src/trainer.rs`
+- [x] T016 [US3] `trainer_state`: недели (`words`, `misses`), дни тренажёра, пары со статусом — `src-tauri/src/trainer.rs`
 - [ ] T017 [US3] Экран прогресса по стенду — `src/trainer/Trainer.tsx`
 
 ## Phase 8: User Story 4 — Напоминание и серия (P3)
@@ -101,12 +101,12 @@ description: "Задачи фичи 003-trainer"
 **Goal**: одно напоминание в первую паузу дня, серия дней.
 **Independent Test**: quickstart п. 6.
 
-- [ ] T018 [US4] WinRT-уведомление с кнопкой «Размяться» (`src-tauri/src/notify.rs`; features `UI_Notifications`,
+- [x] T018 [US4] WinRT-уведомление с кнопкой «Размяться» (`src-tauri/src/notify.rs`; features `UI_Notifications`,
   `Data_Xml_Dom` в `src-tauri/Cargo.toml`), `Activated` → `open_trainer`; AUMID в dev
-- [ ] T019 [US4] Правило напоминания (R8) в `src-tauri/src/trainer.rs` + поток проверки `GetLastInputInfo` раз в
-  30 с: ≥ 100 слов за день, простой ≥ 10 мин, первый ввод после него, сегодня не было разминки и напоминания,
+- [x] T019 [US4] Правило напоминания (R8) в `src-tauri/src/trainer.rs` + поток проверки `GetLastInputInfo` раз в
+  5 с: ≥ 100 слов за день, простой ≥ 10 мин, первый ввод после него, сегодня не было разминки и напоминания,
   `trainer.remind`, не полный экран; `reminded` в `trainer.json`; чистая функция решения с тестами
-- [ ] T020 [US4] Серия в `trainer_state` (подряд дни с `done`, сегодня без разминки серию не рвёт)
+- [x] T020 [US4] Серия в `trainer_state` (подряд дни с `done`, сегодня без разминки серию не рвёт)
 
 ## Phase 9: Polish
 

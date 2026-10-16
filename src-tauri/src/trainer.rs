@@ -1,16 +1,22 @@
 use crate::journal::Journal;
 use ghbdtn_core::config::Config;
 use ghbdtn_core::material::{self, Item};
-use ghbdtn_core::trainer::{self, History, Typing};
+use ghbdtn_core::trainer::{self, History, Pause, Session, State, Typing};
 use ghbdtn_core::win::Engine;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use windows::Win32::System::SystemInformation::GetLocalTime;
+use windows::Win32::System::SystemInformation::{GetLocalTime, GetTickCount};
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 
 pub fn today() -> String {
     let now = unsafe { GetLocalTime() };
     format!("{:04}-{:02}-{:02}", now.wYear, now.wMonth, now.wDay)
+}
+
+pub fn idle_secs() -> Option<u64> {
+    let mut info = LASTINPUTINFO { cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
+    unsafe { GetLastInputInfo(&mut info) }.as_bool().then(|| (unsafe { GetTickCount() }.wrapping_sub(info.dwTime) / 1000) as u64)
 }
 
 fn path(name: &str) -> PathBuf {
@@ -35,22 +41,40 @@ pub struct Store {
     typing: PathBuf,
     history: PathBuf,
     io: Mutex<()>,
+    words: Mutex<(String, u32)>,
 }
 
 impl Store {
     pub fn new() -> Store {
-        Store { typing: path("typing.json"), history: path("trainer.json"), io: Mutex::new(()) }
+        Store { typing: path("typing.json"), history: path("trainer.json"), io: Mutex::new(()), words: Mutex::new((today(), 0)) }
     }
 
     pub fn flush(&self, engine: &Engine) {
         let _io = self.io.lock().unwrap();
         let day = engine.take_tally();
+        let date = today();
+        {
+            let mut w = self.words.lock().unwrap();
+            if w.0 != date {
+                *w = (date.clone(), 0);
+            }
+            w.1 += day.words;
+        }
         if !engine.config().trainer.count || day.is_empty() {
             return;
         }
         let mut t = self.typing();
-        t.add(&today(), &day);
+        t.add(&date, &day);
         let _ = self.save_typing(&t);
+    }
+
+    fn words_today(&self, date: &str) -> u32 {
+        let w = self.words.lock().unwrap();
+        if w.0 == date {
+            w.1
+        } else {
+            0
+        }
     }
 
     fn typing(&self) -> Typing {
@@ -69,6 +93,84 @@ impl Store {
         write(&self.history, h)
     }
 
+    fn build(&self, engine: &Engine, history: &mut History, date: &str) -> State {
+        let cfg = engine.config();
+        let typing = self.typing();
+        let before = history.clone();
+        let pairs = trainer::pairs(&typing, history, date);
+        if *history != before {
+            let _ = self.save_history(history);
+        }
+        State {
+            counting: cfg.trainer.count,
+            remind: cfg.trainer.remind,
+            minutes: cfg.trainer.minutes,
+            first_run: !cfg.trainer.count && !history.offered,
+            has_journal: cfg.journal,
+            streak: trainer::streak(history, date),
+            today: trainer::did_today(history, date),
+            weeks: trainer::weeks(&typing),
+            days: trainer::days(history),
+            pairs,
+        }
+    }
+
+    pub fn state(&self, engine: &Engine) -> State {
+        self.flush(engine);
+        let _io = self.io.lock().unwrap();
+        let mut history = self.history();
+        self.build(engine, &mut history, &today())
+    }
+
+    pub fn finish(&self, engine: &Engine, session: Session) -> State {
+        self.flush(engine);
+        let _io = self.io.lock().unwrap();
+        let date = today();
+        let mut history = self.history();
+        trainer::finish(&mut history, session, &date);
+        let _ = self.save_history(&history);
+        self.build(engine, &mut history, &date)
+    }
+
+    pub fn offer_seen(&self, engine: &Engine) -> State {
+        let _io = self.io.lock().unwrap();
+        let mut history = self.history();
+        if !history.offered {
+            history.offered = true;
+            let _ = self.save_history(&history);
+        }
+        self.build(engine, &mut history, &today())
+    }
+
+    pub fn remind(&self, engine: &Engine, idle_secs: u64) -> Option<String> {
+        let cfg = engine.config();
+        if !cfg.trainer.remind {
+            return None;
+        }
+        self.flush(engine);
+        let _io = self.io.lock().unwrap();
+        let date = today();
+        let mut history = self.history();
+        let pause = Pause {
+            words_today: self.words_today(&date),
+            idle_secs,
+            fullscreen: ghbdtn_core::win::context::current().fullscreen,
+            enabled: cfg.trainer.remind,
+        };
+        if !trainer::should_remind(&history, &date, &pause) {
+            return None;
+        }
+        let weak = trainer::weak_keys(&trainer::pairs(&self.typing(), &mut history, &date));
+        Some(reminder_text(cfg.trainer.minutes, &weak))
+    }
+
+    pub fn reminded(&self) {
+        let _io = self.io.lock().unwrap();
+        let mut history = self.history();
+        history.reminded = today();
+        let _ = self.save_history(&history);
+    }
+
     pub fn material(&self, engine: &Engine, journal: &Journal, minutes: u8) -> Vec<Item> {
         let minutes = if minutes == 5 { 5 } else { 3 };
         self.flush(engine);
@@ -84,10 +186,32 @@ impl Store {
         material::build(&material::Sources { weak: &weak, journal: &words, ru_share: trainer::ru_share(&typing, &date), minutes, seed })
     }
 
-    pub fn clear(&self, engine: &Engine) {
+    pub fn clear(&self, engine: &Engine) -> State {
         let _io = self.io.lock().unwrap();
         engine.take_tally();
+        *self.words.lock().unwrap() = (today(), 0);
         let _ = std::fs::remove_file(&self.typing);
         let _ = std::fs::remove_file(&self.history);
+        self.build(engine, &mut History::default(), &today())
+    }
+}
+
+fn reminder_text(minutes: u8, weak: &[(char, char, f32)]) -> String {
+    let len = if minutes == 5 { "5 минут" } else { "3 минуты" };
+    if weak.is_empty() {
+        return format!("{len} разминки печати.");
+    }
+    let keys: Vec<String> = weak.iter().take(2).map(|(w, r, _)| format!("{w} → {r}")).collect();
+    format!("{len} на твои слабые клавиши: {}.", keys.join(", "))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reminder_text;
+
+    #[test]
+    fn reminder_lines() {
+        assert_eq!(reminder_text(3, &[]), "3 минуты разминки печати.");
+        assert_eq!(reminder_text(5, &[('б', 'ю', 0.05), ('р', 'о', 0.03), ('ш', 'щ', 0.02)]), "5 минут на твои слабые клавиши: б → ю, р → о.");
     }
 }
