@@ -87,7 +87,7 @@ function Lesson({ fs, items, done, saved, stop }: { fs: FingersState; items: Ite
     return (
       <div className="pf-side">
         <Hand side="l" on={on} />
-        <Keyboard levels={fs.levels} cur={fs.level} lang={l.lang} on={codes} ku={22} />
+        <Keyboard levels={fs.levels} cur={fs.level} lang={l.lang} on={codes} ku={28} />
         <Hand side="r" on={on} />
       </div>
     );
