@@ -378,7 +378,10 @@ function TrainerGroup({ cfg, save }: Pick<Ctx, "cfg" | "save">) {
   return (
     <Group label="Тренажёр">
       <Row title="Считать ошибки печати" sub="Только числа, без текста, на этом компьютере"><Toggle on={cfg.trainer.count} label="Считать ошибки печати" onChange={t("count")} /></Row>
-      <Row title="Напоминать о разминке" sub="Один раз в день, в первую паузу"><Toggle on={cfg.trainer.remind} label="Напоминать о разминке" onChange={t("remind")} /></Row>
+      <Row title="Напоминать о разминке" sub="Раз в день, когда возвращаешься к компьютеру"><Toggle on={cfg.trainer.remind} label="Напоминать о разминке" onChange={t("remind")} /></Row>
+      <Row title="Пример напоминания" sub="Пришлёт уведомление сейчас">
+        <button type="button" className="t-btn s32 g" onClick={() => api.trainerRemindPreview().catch(() => {})}>Показать</button>
+      </Row>
       <Row title="Данные тренажёра" sub={cleared ? "Стёрты" : "Счётчики и история разминок"}>
         <button type="button" className="t-btn s32 g" disabled={cleared} onClick={() => api.trainerClear().then(() => setCleared(true), () => {})}>Стереть</button>
       </Row>

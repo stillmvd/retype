@@ -25,7 +25,7 @@ function Pairs({ list }: { list: Pair[] }) {
   return (
     <span className="tr-pairs">
       {list.map((p) => (
-        <span key={p.wrong + p.right} className={`t-chip${p.state === "won" ? " won" : ""}`}>
+        <span key={p.wrong + p.right} className={`t-chip${p.state === "won" ? " won" : ""}`} title={`Нажимаешь «${p.wrong}» вместо «${p.right}»`}>
           <b>{p.wrong} → {p.right}</b>{p.since && <i>с {dayMonth(p.since)}</i>}
         </span>
       ))}
@@ -62,21 +62,7 @@ function Start({ st, cfg, saveCfg, offerSeen, go }: { st: TrainerState; cfg: Con
   );
 }
 
-const HAND = [34, 44, 48, 42, 26];
-
-function Hands({ ch, f }: { ch: string; f: { name: string; index: number } }) {
-  return (
-    <span className="tr-hands">
-      <span aria-hidden="true">
-        <span className="tr-hand">{HAND.map((h, i) => <i key={i} className={f.index < 4 && f.index === i ? "on" : ""} style={{ height: h }} />)}</span>
-        <span className="tr-hand">{[...HAND].reverse().map((h, i) => <i key={i} className={f.index >= 4 && f.index - 3 === i ? "on" : ""} style={{ height: h }} />)}</span>
-      </span>
-      <span className="cap"><b>{ch}</b> — {f.name}</span>
-    </span>
-  );
-}
-
-function Exercise({ items, minutes, weak, onEnd, save, onStop }: { items: Item[]; minutes: number; weak: Set<string>; onEnd: (s: Session, misses: number) => void; save: (s: Session) => void; onStop: () => void }) {
+function Exercise({ items, minutes, onEnd, save, onStop }: { items: Item[]; minutes: number; onEnd: (s: Session, misses: number) => void; save: (s: Session) => void; onStop: () => void }) {
   const [first] = useState<Run>(() => newRun(items));
   const run = useRef(first);
   const started = useRef<number | null>(null);
@@ -135,7 +121,6 @@ function Exercise({ items, minutes, weak, onEnd, save, onStop }: { items: Item[]
   const cur = r.tokens[r.i];
   const exp = cur ? (r.pos < cur.text.length ? cur.text[r.pos] : " ") : "";
   const mark = (ch: string) => <span className={r.err ? "tr-ea" : "tr-cur"}>{ch}</span>;
-  const f = weak.has(exp.toLowerCase()) ? finger(exp) : null;
   const done = r.tokens.slice(Math.max(0, r.i - 8), r.i).map((t) => t.text + " ").join("") + (cur?.text.slice(0, r.pos) ?? "");
   const next = r.tokens.slice(r.i + 1, r.i + 12).map((t) => t.text).join(" ");
   const spent = total - left;
@@ -155,12 +140,8 @@ function Exercise({ items, minutes, weak, onEnd, save, onStop }: { items: Item[]
           )}
         </div>
       </div>
-      <div aria-live="polite">
-        {r.hint ? (
-          <span className="tr-layout">Переключи раскладку на {r.hint === "ru" ? "RU" : "EN"} <Kbd keys="Win+Пробел" /></span>
-        ) : f ? (
-          <Hands ch={exp.toLowerCase()} f={f} />
-        ) : null}
+      <div className="tr-hint" aria-live="polite">
+        {r.hint && <span className="tr-layout">Переключи раскладку на {r.hint === "ru" ? "RU" : "EN"} <Kbd keys="Win+Пробел" /></span>}
       </div>
     </div>
   );
@@ -240,7 +221,7 @@ function Progress({ st, enable }: { st: TrainerState; enable: () => void }) {
         </div>
       )}
       <div className="tr-grid2">
-        <div className="tr-blk"><span className="mono-label tr-lbl">Слабые пары</span>{weak.length ? <Pairs list={weak} /> : <span className="tr-dim">Пока нет</span>}</div>
+        <div className="tr-blk"><span className="tr-lh"><span className="mono-label tr-lbl">Слабые пары</span><span className="tr-dim">нажал → нужно было</span></span>{weak.length ? <Pairs list={weak} /> : <span className="tr-dim">Пока нет</span>}</div>
         <div className="tr-blk"><span className="mono-label tr-lbl">Побеждены</span>{won.length ? <Pairs list={won} /> : <span className="tr-dim">Пока нет</span>}</div>
       </div>
       {(st.streak > 0 || day) && (
@@ -289,7 +270,6 @@ export function Trainer() {
     setTab(t);
   };
 
-  const weak = new Set((st?.pairs ?? []).filter((p) => p.state === "weak").map((p) => p.right));
   const enable = () => cfg && saveCfg({ ...cfg, trainer: { ...cfg.trainer, count: true } });
 
   return (
@@ -309,7 +289,7 @@ export function Trainer() {
           <button type="button" className="t-row" aria-current={tab === "prog" ? "page" : undefined} onClick={() => switchTab("prog")}><Icon name="chart" />Прогресс</button>
         </nav>
         {st && cfg && (tab === "prog" ? <Progress st={st} enable={enable} />
-          : scr.k === "ex" ? <Exercise items={scr.items} minutes={cfg.trainer.minutes} weak={weak} onEnd={onEnd} save={save} onStop={onStop} />
+          : scr.k === "ex" ? <Exercise items={scr.items} minutes={cfg.trainer.minutes} onEnd={onEnd} save={save} onStop={onStop} />
           : scr.k === "res" ? <Result s={scr.s} misses={scr.misses} again={go} progress={() => switchTab("prog")} />
           : <Start st={st} cfg={cfg} saveCfg={saveCfg} offerSeen={() => api.trainerOfferSeen().then(setSt).catch(() => {})} go={go} />)}
       </div>

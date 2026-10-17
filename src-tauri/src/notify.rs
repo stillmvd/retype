@@ -1,3 +1,4 @@
+use std::sync::Mutex;
 use windows::core::{IInspectable, Interface, HSTRING};
 use windows::Data::Xml::Dom::XmlDocument;
 use windows::Foundation::TypedEventHandler;
@@ -9,7 +10,9 @@ fn escape(s: &str) -> String {
     s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
-pub fn reminder(title: &str, body: &str, on_start: impl Fn() + Send + 'static) -> windows::core::Result<ToastNotification> {
+static LAST: Mutex<Vec<ToastNotification>> = Mutex::new(Vec::new());
+
+pub fn reminder(title: &str, body: &str, on_start: impl Fn() + Send + 'static) -> windows::core::Result<()> {
     let xml = XmlDocument::new()?;
     xml.LoadXml(&HSTRING::from(format!(
         "<toast launch=\"start\"><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual><actions><action content=\"Размяться\" arguments=\"start\"/><action content=\"Не сегодня\" arguments=\"skip\"/></actions></toast>",
@@ -25,5 +28,11 @@ pub fn reminder(title: &str, body: &str, on_start: impl Fn() + Send + 'static) -
         Ok(())
     }))?;
     ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(AUMID))?.Show(&toast)?;
-    Ok(toast)
+    if let Ok(mut last) = LAST.lock() {
+        if last.len() >= 4 {
+            last.remove(0);
+        }
+        last.push(toast);
+    }
+    Ok(())
 }

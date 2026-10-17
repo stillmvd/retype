@@ -95,9 +95,10 @@ export function press(r: Run, key: string, code: string): "ok" | "miss" | "hint"
     r.hint = lay;
     return "hint";
   }
+  r.hint = null;
+  if (r.err) return "miss";
   r.miss += 1;
   r.err = true;
-  r.hint = null;
   const w = key.toLowerCase(), e = exp.toLowerCase();
   if (w !== e && (CYR.test(w) || LAT.test(w)) && (CYR.test(e) || LAT.test(e))) r.pairs[`${w}>${e}`] = (r.pairs[`${w}>${e}`] ?? 0) + 1;
   if (!r.repeated) {

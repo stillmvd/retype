@@ -15,7 +15,9 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 use tray::{Look, Tray};
-use windows::Win32::Foundation::POINT;
+use windows::Win32::Foundation::{HWND, POINT};
+use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow};
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::System::SystemInformation::GetLocalTime;
 
@@ -275,7 +277,7 @@ async fn open_settings_cmd(app: AppHandle) {
 }
 
 pub fn open_settings(app: &AppHandle) {
-    open_window(app, "settings", "Ghbdtn", (880.0, 620.0), (720.0, 520.0));
+    open_window(app, "settings", "Ghbdtn", (1040.0, 720.0), (720.0, 520.0));
 }
 
 #[tauri::command]
@@ -306,25 +308,40 @@ async fn trainer_clear(s: State<'_, S>) -> Result<ghbdtn_core::trainer::State, (
 fn tally_loop(app: AppHandle, s: S) {
     let mut tick = 0u32;
     let mut was_idle = 0u64;
-    let mut _toast = None;
+    let mut locked_at: Option<Instant> = None;
     loop {
         std::thread::sleep(Duration::from_secs(5));
         tick += 1;
         if tick.is_multiple_of(12) {
             s.trainer.flush(&s.engine);
         }
+        if trainer::locked() {
+            locked_at.get_or_insert_with(Instant::now);
+            continue;
+        }
+        let locked_secs = locked_at.take().map_or(0, |t| t.elapsed().as_secs());
         let Some(idle) = trainer::idle_secs() else { continue };
-        if idle < was_idle && was_idle >= ghbdtn_core::trainer::REMIND_IDLE_SECS {
-            if let Some(body) = s.trainer.remind(&s.engine, was_idle) {
-                let a = app.clone();
-                if let Ok(t) = notify::reminder("Пора размяться", &body, move || open_trainer(&a)) {
-                    s.trainer.reminded();
-                    _toast = Some(t);
-                }
+        let away = if idle < was_idle { was_idle } else { 0 };
+        was_idle = idle;
+        if away == 0 && locked_secs == 0 {
+            continue;
+        }
+        if let Some(body) = s.trainer.remind(&s.engine, away, locked_secs) {
+            if remind(&app, &body).is_ok() {
+                s.trainer.reminded();
             }
         }
-        was_idle = idle;
     }
+}
+
+fn remind(app: &AppHandle, body: &str) -> windows::core::Result<()> {
+    let a = app.clone();
+    notify::reminder("Пора размяться", body, move || open_trainer(&a))
+}
+
+#[tauri::command]
+async fn trainer_remind_preview(app: AppHandle, s: State<'_, S>) -> Result<(), String> {
+    remind(&app, &s.trainer.preview(&s.engine)).map_err(|e| e.message())
 }
 
 #[tauri::command]
@@ -344,15 +361,34 @@ fn open_window(app: &AppHandle, label: &str, title: &str, size: (f64, f64), min:
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
+        front(&w);
         return;
     }
-    let _ = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
+    let built = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title(title)
         .inner_size(size.0, size.1)
         .min_inner_size(min.0, min.1)
         .decorations(false)
         .center()
         .build();
+    if let Ok(w) = built {
+        front(&w);
+    }
+}
+
+fn front(w: &tauri::WebviewWindow) {
+    let Ok(hwnd) = w.hwnd() else { return };
+    let hwnd = HWND(hwnd.0 as _);
+    unsafe {
+        let me = GetCurrentThreadId();
+        let other = GetWindowThreadProcessId(GetForegroundWindow(), None);
+        let attached = other != 0 && other != me && AttachThreadInput(me, other, true).as_bool();
+        let _ = SetForegroundWindow(hwnd);
+        let _ = BringWindowToTop(hwnd);
+        if attached {
+            let _ = AttachThreadInput(me, other, false);
+        }
+    }
 }
 
 fn work_area(x: i32, y: i32) -> Option<(i32, i32, i32, i32)> {
@@ -523,6 +559,7 @@ pub fn run() {
             trainer_finish,
             trainer_material,
             trainer_offer_seen,
+            trainer_remind_preview,
             trainer_state,
             flyout_ready
         ])

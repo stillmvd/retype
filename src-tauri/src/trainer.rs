@@ -6,6 +6,7 @@ use ghbdtn_core::win::Engine;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use windows::Win32::System::StationsAndDesktops::{CloseDesktop, OpenInputDesktop, DESKTOP_CONTROL_FLAGS, DESKTOP_SWITCHDESKTOP};
 use windows::Win32::System::SystemInformation::{GetLocalTime, GetTickCount};
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
 
@@ -17,6 +18,16 @@ pub fn today() -> String {
 pub fn idle_secs() -> Option<u64> {
     let mut info = LASTINPUTINFO { cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
     unsafe { GetLastInputInfo(&mut info) }.as_bool().then(|| (unsafe { GetTickCount() }.wrapping_sub(info.dwTime) / 1000) as u64)
+}
+
+pub fn locked() -> bool {
+    match unsafe { OpenInputDesktop(DESKTOP_CONTROL_FLAGS(0), false, DESKTOP_SWITCHDESKTOP) } {
+        Ok(h) => {
+            let _ = unsafe { CloseDesktop(h) };
+            false
+        }
+        Err(_) => true,
+    }
 }
 
 fn path(name: &str) -> PathBuf {
@@ -41,40 +52,22 @@ pub struct Store {
     typing: PathBuf,
     history: PathBuf,
     io: Mutex<()>,
-    words: Mutex<(String, u32)>,
 }
 
 impl Store {
     pub fn new() -> Store {
-        Store { typing: path("typing.json"), history: path("trainer.json"), io: Mutex::new(()), words: Mutex::new((today(), 0)) }
+        Store { typing: path("typing.json"), history: path("trainer.json"), io: Mutex::new(()) }
     }
 
     pub fn flush(&self, engine: &Engine) {
         let _io = self.io.lock().unwrap();
         let day = engine.take_tally();
-        let date = today();
-        {
-            let mut w = self.words.lock().unwrap();
-            if w.0 != date {
-                *w = (date.clone(), 0);
-            }
-            w.1 += day.words;
-        }
         if !engine.config().trainer.count || day.is_empty() {
             return;
         }
         let mut t = self.typing();
-        t.add(&date, &day);
+        t.add(&today(), &day);
         let _ = self.save_typing(&t);
-    }
-
-    fn words_today(&self, date: &str) -> u32 {
-        let w = self.words.lock().unwrap();
-        if w.0 == date {
-            w.1
-        } else {
-            0
-        }
     }
 
     fn typing(&self) -> Typing {
@@ -142,7 +135,7 @@ impl Store {
         self.build(engine, &mut history, &today())
     }
 
-    pub fn remind(&self, engine: &Engine, idle_secs: u64) -> Option<String> {
+    pub fn remind(&self, engine: &Engine, away_secs: u64, locked_secs: u64) -> Option<String> {
         let cfg = engine.config();
         if !cfg.trainer.remind {
             return None;
@@ -150,18 +143,22 @@ impl Store {
         self.flush(engine);
         let _io = self.io.lock().unwrap();
         let date = today();
-        let mut history = self.history();
-        let pause = Pause {
-            words_today: self.words_today(&date),
-            idle_secs,
-            fullscreen: ghbdtn_core::win::context::current().fullscreen,
-            enabled: cfg.trainer.remind,
-        };
+        let history = self.history();
+        let pause = Pause { away_secs, locked_secs, fullscreen: ghbdtn_core::win::context::current().fullscreen, enabled: true };
         if !trainer::should_remind(&history, &date, &pause) {
             return None;
         }
-        let weak = trainer::weak_keys(&trainer::pairs(&self.typing(), &mut history, &date));
-        Some(reminder_text(cfg.trainer.minutes, &weak))
+        Some(self.text(engine, history, &date))
+    }
+
+    pub fn preview(&self, engine: &Engine) -> String {
+        let _io = self.io.lock().unwrap();
+        self.text(engine, self.history(), &today())
+    }
+
+    fn text(&self, engine: &Engine, mut history: History, date: &str) -> String {
+        let weak = trainer::weak_keys(&trainer::pairs(&self.typing(), &mut history, date));
+        reminder_text(engine.config().trainer.minutes, &weak)
     }
 
     pub fn reminded(&self) {
@@ -189,7 +186,6 @@ impl Store {
     pub fn clear(&self, engine: &Engine) -> State {
         let _io = self.io.lock().unwrap();
         engine.take_tally();
-        *self.words.lock().unwrap() = (today(), 0);
         let _ = std::fs::remove_file(&self.typing);
         let _ = std::fs::remove_file(&self.history);
         self.build(engine, &mut History::default(), &today())

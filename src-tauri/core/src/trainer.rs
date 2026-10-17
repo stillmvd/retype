@@ -56,6 +56,7 @@ pub const WEAK_RATE: f32 = 0.02;
 pub const MIN_PRESSES: u32 = 50;
 pub const MIN_PRESSES_TRAINER: u32 = 20;
 pub const DAY_PRESSES: u32 = 50;
+pub const MIN_PAIR_MISSES: u32 = 3;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Pair {
@@ -106,7 +107,7 @@ pub fn pairs(typing: &Typing, history: &mut History, today: &str) -> Vec<Pair> {
         let weak = if history.won.contains_key(key) {
             (0..CLEAN_DAYS).any(|a| real(a).is_some_and(|d| rate(d, key).is_some_and(|(x, _)| x >= WEAK_RATE)))
         } else {
-            rate(&long, key).is_some_and(|(x, p)| p >= min && x >= WEAK_RATE)
+            rate(&long, key).is_some_and(|(x, p)| p >= min && x >= WEAK_RATE) && long.pairs[key] >= MIN_PAIR_MISSES
         };
         if weak {
             history.won.remove(key);
@@ -160,12 +161,13 @@ pub fn weak_keys(pairs: &[Pair]) -> Vec<(char, char, f32)> {
     pairs.iter().filter(|p| p.state == "weak").filter_map(|p| Some((p.wrong.chars().next()?, p.right.chars().next()?, p.rate))).collect()
 }
 
-pub const REMIND_WORDS: u32 = 100;
+pub const REMIND_LOCK_SECS: u64 = 20;
 pub const REMIND_IDLE_SECS: u64 = 600;
 
+#[derive(Clone, Copy)]
 pub struct Pause {
-    pub words_today: u32,
-    pub idle_secs: u64,
+    pub away_secs: u64,
+    pub locked_secs: u64,
     pub fullscreen: bool,
     pub enabled: bool,
 }
@@ -175,7 +177,8 @@ pub fn did_today(history: &History, today: &str) -> bool {
 }
 
 pub fn should_remind(history: &History, today: &str, p: &Pause) -> bool {
-    p.enabled && !p.fullscreen && p.words_today >= REMIND_WORDS && p.idle_secs >= REMIND_IDLE_SECS && history.reminded != today && !did_today(history, today)
+    let back = p.locked_secs >= REMIND_LOCK_SECS || p.away_secs >= REMIND_IDLE_SECS;
+    p.enabled && !p.fullscreen && back && history.reminded != today && !did_today(history, today)
 }
 
 pub fn streak(history: &History, today: &str) -> u32 {
@@ -312,13 +315,24 @@ mod tests {
     }
 
     #[test]
+    fn single_miss_is_not_weak() {
+        let today = "2026-10-17";
+        let s = |m: u32| Session { date: today.into(), done: true, pairs: BTreeMap::from([("и>т".to_string(), m)]), presses: BTreeMap::from([("т".to_string(), 25)]), ..Session::default() };
+        let mut h = History { sessions: vec![s(1)], ..History::default() };
+        assert!(pairs(&Typing::default(), &mut h, today).is_empty());
+        h.sessions.push(s(2));
+        assert_eq!(pairs(&Typing::default(), &mut h, today).len(), 1);
+    }
+
+    #[test]
     fn remind_streak_weeks() {
         let today = "2026-10-17";
         let mut h = History::default();
-        let p = Pause { words_today: 150, idle_secs: 700, fullscreen: false, enabled: true };
+        let p = Pause { away_secs: 700, locked_secs: 0, fullscreen: false, enabled: true };
         assert!(should_remind(&h, today, &p));
-        assert!(!should_remind(&h, today, &Pause { words_today: 99, ..p }));
-        assert!(!should_remind(&h, today, &Pause { idle_secs: 300, ..p }));
+        assert!(!should_remind(&h, today, &Pause { away_secs: 300, ..p }));
+        assert!(should_remind(&h, today, &Pause { away_secs: 0, locked_secs: 25, ..p }));
+        assert!(!should_remind(&h, today, &Pause { away_secs: 0, locked_secs: 5, ..p }));
         assert!(!should_remind(&h, today, &Pause { fullscreen: true, ..p }));
         assert!(!should_remind(&h, today, &Pause { enabled: false, ..p }));
         h.reminded = today.into();
@@ -368,7 +382,7 @@ mod tests {
         assert!(pairs(&t, &mut h, today).is_empty());
         t.days.insert(date(20), day(1000, 900));
         assert!(pairs(&t, &mut h, today).is_empty());
-        let mut h = History { sessions: vec![Session { date: date(0), pairs: BTreeMap::from([("б>ю".to_string(), 2)]), presses: BTreeMap::from([("ю".to_string(), 25)]), ..Session::default() }], ..History::default() };
+        let mut h = History { sessions: vec![Session { date: date(0), pairs: BTreeMap::from([("б>ю".to_string(), 3)]), presses: BTreeMap::from([("ю".to_string(), 25)]), ..Session::default() }], ..History::default() };
         let p = pairs(&Typing::default(), &mut h, today);
         assert_eq!((p.len(), p[0].right.as_str()), (1, "ю"));
     }

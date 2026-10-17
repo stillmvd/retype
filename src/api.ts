@@ -76,6 +76,7 @@ export const api = {
   trainerState: () => invoke<TrainerState>("trainer_state"),
   trainerFinish: (session: Session) => invoke<TrainerState>("trainer_finish", { session }),
   trainerOfferSeen: () => invoke<TrainerState>("trainer_offer_seen"),
+  trainerRemindPreview: () => invoke<void>("trainer_remind_preview"),
   trainerClear: () => invoke<TrainerState>("trainer_clear"),
   flyoutReady: () => invoke<void>("flyout_ready"),
 };

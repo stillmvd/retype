@@ -104,7 +104,7 @@ description: "Задачи фичи 003-trainer"
 - [x] T018 [US4] WinRT-уведомление с кнопкой «Размяться» (`src-tauri/src/notify.rs`; features `UI_Notifications`,
   `Data_Xml_Dom` в `src-tauri/Cargo.toml`), `Activated` → `open_trainer`; AUMID в dev
 - [x] T019 [US4] Правило напоминания (R8) в `src-tauri/src/trainer.rs` + поток проверки `GetLastInputInfo` раз в
-  5 с: ≥ 100 слов за день, простой ≥ 10 мин, первый ввод после него, сегодня не было разминки и напоминания,
+  5 с: разблокировка после ≥ 20 с (Win+L, сон) или первый ввод после ≥ 10 мин простоя, сегодня не было разминки и напоминания,
   `trainer.remind`, не полный экран; `reminded` в `trainer.json`; чистая функция решения с тестами
 - [x] T020 [US4] Серия в `trainer_state` (подряд дни с `done`, сегодня без разминки серию не рвёт)
 
