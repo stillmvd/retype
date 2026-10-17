@@ -1,6 +1,6 @@
-import type { Item, Session } from "../api";
+import type { FingerSession, Item, Session } from "../api";
 
-const KEYS: Record<string, [string, string]> = {
+export const KEYS: Record<string, [string, string]> = {
   Backquote: ["ё", "`"], KeyQ: ["й", "q"], KeyW: ["ц", "w"], KeyE: ["у", "e"], KeyR: ["к", "r"], KeyT: ["е", "t"],
   KeyY: ["н", "y"], KeyU: ["г", "u"], KeyI: ["ш", "i"], KeyO: ["щ", "o"], KeyP: ["з", "p"], BracketLeft: ["х", "["],
   BracketRight: ["ъ", "]"], KeyA: ["ф", "a"], KeyS: ["ы", "s"], KeyD: ["в", "d"], KeyF: ["а", "f"], KeyG: ["п", "g"],
@@ -44,6 +44,9 @@ const same = (key: string, exp: string) => key === exp || (exp === "ё" && key =
 
 export type Token = { text: string; lang: "ru" | "en" };
 
+export type Mode = "plain" | "shift" | "back";
+type Stat = { n: number; miss: number; ms: number };
+
 export type Run = {
   tokens: Token[];
   i: number;
@@ -55,12 +58,26 @@ export type Run = {
   miss: number;
   pairs: Record<string, number>;
   presses: Record<string, number>;
+  mode: Mode;
+  keys: Record<string, Stat>;
+  last: number | null;
+  shift: string | null;
+  bad: string | null;
 };
 
-export function newRun(items: Item[]): Run {
+export function newRun(items: Item[], mode: Mode = "plain"): Run {
   const tokens = items.flatMap((it) => it.text.split(/\s+/).filter(Boolean).map((text) => ({ text, lang: it.lang })));
-  return { tokens, i: 0, pos: 0, err: false, repeated: false, hint: null, ok: 0, miss: 0, pairs: {}, presses: {} };
+  return { tokens, i: 0, pos: 0, err: false, repeated: false, hint: null, ok: 0, miss: 0, pairs: {}, presses: {}, mode, keys: {}, last: null, shift: null, bad: null };
 }
+
+const SIGNS = ".,?!-:";
+const statKey = (exp: string) => {
+  const lo = exp.toLowerCase();
+  return CYR.test(lo) || LAT.test(lo) || SIGNS.includes(exp) ? lo : null;
+};
+const stat = (r: Run, k: string) => (r.keys[k] ??= { n: 0, miss: 0, ms: 0 });
+const isCapital = (ch: string) => (CYR.test(ch) || LAT.test(ch)) && ch !== ch.toLowerCase();
+export const shiftFor = (ch: string) => ((finger(ch)?.index ?? 8) <= 3 ? "ShiftRight" : "ShiftLeft");
 
 export const expected = (r: Run) => {
   const t = r.tokens[r.i];
@@ -70,11 +87,33 @@ export const expected = (r: Run) => {
 
 export const atBoundary = (r: Run) => !r.tokens[r.i] || r.pos === 0 || r.pos >= r.tokens[r.i].text.length;
 
-export function press(r: Run, key: string, code: string): "ok" | "miss" | "hint" | "end" | null {
+export function press(r: Run, key: string, code: string, now = performance.now()): "ok" | "miss" | "hint" | "end" | null {
   const exp = expected(r);
   if (!exp) return "end";
+  if (r.bad !== null) {
+    if (key !== "Backspace") return "miss";
+    r.bad = null;
+    return "ok";
+  }
   if (key.length !== 1) return null;
   if (same(key, exp)) {
+    const ms = r.last === null ? null : Math.round(now - r.last);
+    const k = statKey(exp);
+    if (k && ms !== null) {
+      const s = stat(r, k);
+      s.n += 1;
+      s.ms += ms;
+    }
+    if (r.mode !== "plain" && isCapital(exp) && ms !== null) {
+      const s = stat(r, "⇧");
+      if (r.shift === shiftFor(exp)) {
+        s.n += 1;
+        s.ms += ms;
+      } else if (!r.err) {
+        s.miss += 1;
+      }
+    }
+    r.last = now;
     r.ok += 1;
     r.err = false;
     r.hint = null;
@@ -96,9 +135,12 @@ export function press(r: Run, key: string, code: string): "ok" | "miss" | "hint"
     return "hint";
   }
   r.hint = null;
+  if (r.mode === "back") r.bad = key;
   if (r.err) return "miss";
   r.miss += 1;
   r.err = true;
+  const k = statKey(exp);
+  if (k) stat(r, k).miss += 1;
   const w = key.toLowerCase(), e = exp.toLowerCase();
   if (w !== e && (CYR.test(w) || LAT.test(w)) && (CYR.test(e) || LAT.test(e))) r.pairs[`${w}>${e}`] = (r.pairs[`${w}>${e}`] ?? 0) + 1;
   if (!r.repeated) {
@@ -118,4 +160,9 @@ export function session(r: Run, seconds: number, done: boolean): Session {
     pairs: r.pairs,
     presses: r.presses,
   };
+}
+
+export function fingerSession(r: Run, seconds: number, done: boolean): FingerSession {
+  const { accuracy, cpm } = session(r, seconds, done);
+  return { seconds: Math.round(seconds), done, accuracy, cpm, keys: r.keys };
 }

@@ -20,6 +20,8 @@ const PATHS: Record<string, string> = {
   chart: "M4 4v16h16M8 15l3.5-4 3 2.5L20 7",
   flame: "M12 21c-3.9 0-7-2.8-7-6.6 0-3.1 2.2-5 3.6-7.1.4 1.6 1.3 2.7 2.4 3.2C11 7 12.5 4.7 15 3c-.3 2.6.7 4.3 2.2 6 1.1 1.3 1.8 2.9 1.8 4.8C19 17.9 16 21 12 21Z",
   play: "M8 5.5v13l10.5-6.5z",
+  hand: "M8 13V6.5a1.5 1.5 0 0 1 3 0V12m0-6.5V4.5a1.5 1.5 0 0 1 3 0V12m0-6a1.5 1.5 0 0 1 3 0v6m0-3.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.5a6 6 0 0 1-5-2.7L4.6 14a1.5 1.5 0 0 1 2.4-1.8L8 13.5",
+  lock: "M8 10.5h8a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-4a3 3 0 0 1 3-3ZM8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5",
 };
 
 export function Icon({ name, className = "" }: { name: keyof typeof PATHS | string; className?: string }) {

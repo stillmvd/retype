@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as KeyEv, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { checkNow, installNow, UpdateBadge, UpdateToast, useShip } from "@stillmvd/tauri-ship";
+import { checkNow, installNow, useShip } from "@stillmvd/tauri-ship";
 import { api, errorsOf, plural, type About, type Config, type ConfigError, type Insert, type Proc, type Program, type Sensitivity, type Switch } from "../api";
 import { AppMark, Icon, Kbd, Toggle } from "../Icon";
 import "./settings.css";
@@ -20,7 +19,7 @@ const NAV: [Sec, string, string][] = [
 
 type Ctx = { cfg: Config; save: (next: Config) => Promise<boolean>; errors: ConfigError[]; setCfg: (c: Config) => void };
 
-function Row({ title, sub, children }: { title: string; sub?: string; children: ReactNode }) {
+export function Row({ title, sub, children }: { title: string; sub?: string; children: ReactNode }) {
   return (
     <div className="t-setrow">
       <span className="tx"><b>{title}</b>{sub && <span>{sub}</span>}</span>
@@ -29,7 +28,7 @@ function Row({ title, sub, children }: { title: string; sub?: string; children: 
   );
 }
 
-function Group({ label, extra, note, children }: { label?: string; extra?: ReactNode; note?: string; children: ReactNode }) {
+export function Group({ label, extra, note, children }: { label?: string; extra?: ReactNode; note?: string; children: ReactNode }) {
   return (
     <div className="st-grp">
       <div className="st-grp-h">{label && <span className="mono-label st-lbl">{label}</span>}{extra}</div>
@@ -87,7 +86,6 @@ function Main({ cfg, save }: Ctx) {
             <Row title="Анимацию курсора"><Toggle on={cfg.signals.cursor} label="Анимацию курсора" onChange={g("cursor")} /></Row>
             <Row title="Звук"><Toggle on={cfg.signals.sound} label="Звук" onChange={g("sound")} /></Row>
           </Group>
-          <TrainerGroup cfg={cfg} save={save} />
         </div>
       </div>
     </>
@@ -372,23 +370,6 @@ function Keys({ cfg, save, errors }: Ctx) {
   );
 }
 
-function TrainerGroup({ cfg, save }: Pick<Ctx, "cfg" | "save">) {
-  const [cleared, setCleared] = useState(false);
-  const t = (k: "count" | "remind") => (v: boolean) => save({ ...cfg, trainer: { ...cfg.trainer, [k]: v } });
-  return (
-    <Group label="Тренажёр">
-      <Row title="Считать ошибки печати" sub="Только числа, без текста, на этом компьютере"><Toggle on={cfg.trainer.count} label="Считать ошибки печати" onChange={t("count")} /></Row>
-      <Row title="Напоминать о разминке" sub="Раз в день, когда возвращаешься к компьютеру"><Toggle on={cfg.trainer.remind} label="Напоминать о разминке" onChange={t("remind")} /></Row>
-      <Row title="Пример напоминания" sub="Пришлёт уведомление сейчас">
-        <button type="button" className="t-btn s32 g" onClick={() => api.trainerRemindPreview().catch(() => {})}>Показать</button>
-      </Row>
-      <Row title="Данные тренажёра" sub={cleared ? "Стёрты" : "Счётчики и история разминок"}>
-        <button type="button" className="t-btn s32 g" disabled={cleared} onClick={() => api.trainerClear().then(() => setCleared(true), () => {})}>Стереть</button>
-      </Row>
-    </Group>
-  );
-}
-
 function ago(ms: number) {
   const m = Math.floor((Date.now() - ms) / 60_000);
   return m < 1 ? "только что" : m < 60 ? `${m} мин назад` : `в ${new Date(ms).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`;
@@ -434,7 +415,6 @@ export function Settings() {
   const [sec, setSec] = useState<Sec>("main");
   const [cfg, setCfg] = useState<Config | null>(null);
   const [errors, setErrors] = useState<ConfigError[]>([]);
-  const win = getCurrentWindow();
 
   useEffect(() => {
     api.getConfig().then(setCfg).catch(() => {});
@@ -459,16 +439,6 @@ export function Settings() {
 
   return (
     <div className="st">
-      <div className="t-titlebar" data-tauri-drag-region>
-        <AppMark className="st-mk" />
-        <span className="name" data-tauri-drag-region>Ghbdtn</span>
-        <span className="sp" data-tauri-drag-region />
-        <UpdateBadge />
-        <div className="t-win">
-          <button type="button" aria-label="Свернуть" onClick={() => win.minimize()}><Icon name="min" /></button>
-          <button type="button" className="close" aria-label="Закрыть" onClick={() => win.close()}><Icon name="x" /></button>
-        </div>
-      </div>
       <div className="st-body">
         <nav className="st-rail" aria-label="Разделы">
           {NAV.map(([k, l, i]) => (
@@ -484,7 +454,6 @@ export function Settings() {
           </div>
         </main>
       </div>
-      <UpdateToast lang="ru" />
     </div>
   );
 }

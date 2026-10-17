@@ -277,7 +277,7 @@ async fn open_settings_cmd(app: AppHandle) {
 }
 
 pub fn open_settings(app: &AppHandle) {
-    open_window(app, "settings", "Ghbdtn", (1040.0, 720.0), (720.0, 520.0));
+    open_hub(app, None);
 }
 
 #[tauri::command]
@@ -375,24 +375,28 @@ async fn open_trainer_cmd(app: AppHandle) {
 }
 
 pub fn open_trainer(app: &AppHandle) {
-    open_window(app, "trainer", "Тренажёр — Ghbdtn", (880.0, 620.0), (720.0, 520.0));
+    open_hub(app, Some("trainer"));
 }
 
-fn open_window(app: &AppHandle, label: &str, title: &str, size: (f64, f64), min: (f64, f64)) {
+fn open_hub(app: &AppHandle, tab: Option<&str>) {
     if let Some(w) = app.get_webview_window("flyout") {
         let _ = w.destroy();
     }
-    if let Some(w) = app.get_webview_window(label) {
+    if let Some(w) = app.get_webview_window("settings") {
+        if let Some(tab) = tab {
+            let _ = w.emit("hub-tab", tab);
+        }
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
         front(&w);
         return;
     }
-    let built = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
-        .title(title)
-        .inner_size(size.0, size.1)
-        .min_inner_size(min.0, min.1)
+    let url = tab.map_or_else(|| "index.html".to_string(), |t| format!("index.html#{t}"));
+    let built = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App(url.into()))
+        .title("Ghbdtn")
+        .inner_size(1040.0, 720.0)
+        .min_inner_size(720.0, 520.0)
         .decorations(false)
         .center()
         .build();

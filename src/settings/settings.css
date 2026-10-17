@@ -1,7 +1,4 @@
-.st { height: 100%; display: flex; flex-direction: column; background: var(--ground); overflow: hidden; }
-.st .t-titlebar { flex: none; gap: 10px; }
-.st-mk { flex: none; display: block; width: 18px; height: 18px; }
-.st .t-win .gb-ic { width: 16px; height: 16px; }
+.st { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .st-body { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 0 8px 8px; }
 .st-rail { flex: none; width: 212px; display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: var(--radius-28); background: var(--cosmic); overflow: auto; }
 .st-rail .t-row { flex: none; }

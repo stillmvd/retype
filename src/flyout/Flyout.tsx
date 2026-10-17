@@ -2,8 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { installNow, useShip } from "@stillmvd/tauri-ship";
-import { api, plural, type Config, type FlyoutState } from "../api";
-import { Icon, Mark, Toggle } from "../Icon";
+import { api, plural, type Config, type FingersState, type FlyoutState } from "../api";
+import { AppMark, Icon, Mark, Toggle } from "../Icon";
 import "./flyout.css";
 
 const FEATURES: [keyof Config["features"], string][] = [["layout", "Раскладка"], ["typos", "Опечатки"], ["replace", "Замены"]];
@@ -27,17 +27,20 @@ const warm = (streak: number, minutes: number) =>
 export function Flyout() {
   const [s, setS] = useState<FlyoutState | null>(null);
   const [streak, setStreak] = useState(0);
+  const [fs, setFs] = useState<FingersState | null>(null);
   const card = useRef<HTMLDivElement>(null);
   const { status } = useShip();
   const ready = status?.phase === "ready" || status?.phase === "installing";
   const load = useCallback(() => {
     api.flyoutState().then(setS).catch(() => {});
     api.trainerState().then((t) => setStreak(t.streak)).catch(() => {});
+    api.fingersState().then(setFs).catch(() => {});
   }, []);
 
   useEffect(() => {
     api.flyoutState().then(setS).catch(() => getCurrentWindow().close());
     api.trainerState().then((t) => setStreak(t.streak)).catch(() => {});
+    api.fingersState().then(setFs).catch(() => {});
     const offs = ["status", "config-changed"].map((e) => listen(e, load));
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") getCurrentWindow().close(); };
     addEventListener("keydown", esc);
@@ -92,22 +95,29 @@ export function Flyout() {
             <Toggle on={appOff} label={`Не трогать ${s.app.name}`} onChange={toggleApp} />
           </div>
         )}
-        <div className="t-setrow">
-          <span className="tx"><b>Разминка</b><span>{warm(streak, cfg.trainer.minutes)}</span></span>
-          <button type="button" className="t-btn s32 p" onClick={() => api.openTrainer()}><Icon name="play" />Начать</button>
-        </div>
+        {fs && !fs.warmOpen ? (
+          <div className="t-setrow">
+            <span className="tx"><b>Постановка</b><span>Уровень {fs.level} · {fs.levels[fs.level - 1]?.name.toLowerCase()}</span></span>
+            <button type="button" className="t-btn s32 p" onClick={() => api.openTrainer()}><Icon name="play" />Продолжить</button>
+          </div>
+        ) : (
+          <div className="t-setrow">
+            <span className="tx"><b>Разминка</b><span>{warm(streak, cfg.trainer.minutes)}</span></span>
+            <button type="button" className="t-btn s32 p" onClick={() => api.openTrainer()}><Icon name="play" />Начать</button>
+          </div>
+        )}
         {ready ? (
           <div className="fl-foot">
             <span className="fl-up">Готова версия {status?.available?.version}</span>
             <span className="fl-btns">
               <button type="button" className="t-btn s32 p" disabled={status?.phase === "installing"} onClick={() => installNow()}><Icon name="restart" />Перезапустить</button>
-              <button type="button" className="t-btn s32 g ib" aria-label="Настройки" title="Настройки" onClick={() => api.openSettings()}><Icon name="settings" /></button>
+              <button type="button" className="t-btn s32 g ib" aria-label="Открыть Ghbdtn" title="Открыть Ghbdtn" onClick={() => api.openSettings()}><AppMark className="fl-am" /></button>
             </span>
           </div>
         ) : (
           <div className="fl-foot">
             <span>{s.count} {plural(s.count, "исправление", "исправления", "исправлений")} сегодня</span>
-            <button type="button" className="t-btn s32 g" onClick={() => api.openSettings()}><Icon name="settings" />Настройки</button>
+            <button type="button" className="t-btn s32 g" onClick={() => api.openSettings()}><AppMark className="fl-am" />Открыть Ghbdtn</button>
           </div>
         )}
       </div>

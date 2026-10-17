@@ -1,9 +1,6 @@
-.tr { height: 100%; display: flex; flex-direction: column; background: var(--ground); overflow: hidden; }
-.tr .t-titlebar { flex: none; gap: 10px; }
-.tr-mk { flex: none; display: block; width: 18px; height: 18px; }
-.tr .t-win .gb-ic { width: 16px; height: 16px; }
+.tr { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .tr-body { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 0 8px 8px; }
-.tr-rail { flex: none; width: 200px; display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: var(--radius-28); background: var(--cosmic); }
+.tr-rail { flex: none; width: 212px; display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: var(--radius-28); background: var(--cosmic); }
 .tr-rail .t-row { flex: none; }
 .tr-main { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 28px; padding: 28px 32px; border-radius: var(--radius-28); background: var(--cosmic); overflow: hidden; }
 .tr-main.center { align-items: center; justify-content: center; text-align: center; }
@@ -54,3 +51,8 @@
 .tr-blk { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .tr-lh { display: flex; align-items: baseline; gap: 10px; }
 .tr-hint { min-height: 36px; display: flex; align-items: center; justify-content: center; }
+.tr-bad { border-radius: 6px; background: var(--danger); color: var(--danger-ink); padding: 0 1px; }
+.tr-rail .sp { flex: 1; }
+.tr-rail .t-row .lk { margin-left: auto; width: 14px; height: 14px; color: var(--dim); }
+.tr-set { justify-content: flex-start; overflow: auto; }
+.tr-set .st-grp { width: 100%; max-width: 620px; }

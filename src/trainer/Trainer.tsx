@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { api, plural, type Config, type Item, type Pair, type Session, type TrainerState } from "../api";
-import { AppMark, Icon, Kbd } from "../Icon";
-import { atBoundary, finger, newRun, press, session, type Run } from "./engine";
+import { api, plural, type Config, type FingersState, type Item, type Pair, type Session, type TrainerState } from "../api";
+import { Icon, Toggle } from "../Icon";
+import { Group, Row } from "../settings/Settings";
+import { finger, session, type Run } from "./engine";
+import { Exercise } from "./Exercise";
+import { Fingers } from "./Fingers";
+import { Streak } from "./Streak";
 import "./trainer.css";
+import "./fingers.css";
 
 type Screen = { k: "start" } | { k: "ex"; items: Item[] } | { k: "res"; s: Session; misses: number };
+type Sec = "fingers" | "warm" | "prog" | "set";
 
 const win = getCurrentWindow();
 
@@ -15,11 +21,6 @@ const dayMonth = (date: string) => `${+date.slice(8, 10)} ${MONTHS[+date.slice(5
 const ddmm = (date: string) => `${date.slice(8, 10)}.${date.slice(5, 7)}`;
 const dec = (v: number) => v.toFixed(1).replace(".", ",");
 const arrow = (key: string) => key.replace(">", " → ");
-
-function Streak({ n }: { n: number }) {
-  if (n <= 0) return null;
-  return <span className="tr-streak"><Icon name="flame" /><b>{n} {plural(n, "день", "дня", "дней")}</b> подряд</span>;
-}
 
 function Pairs({ list }: { list: Pair[] }) {
   return (
@@ -62,87 +63,16 @@ function Start({ st, cfg, saveCfg, offerSeen, go }: { st: TrainerState; cfg: Con
   );
 }
 
-function Exercise({ items, minutes, onEnd, save, onStop }: { items: Item[]; minutes: number; onEnd: (s: Session, misses: number) => void; save: (s: Session) => void; onStop: () => void }) {
-  const [first] = useState<Run>(() => newRun(items));
-  const run = useRef(first);
-  const started = useRef<number | null>(null);
-  const ended = useRef(false);
-  const [, redraw] = useState(0);
-  const [left, setLeft] = useState(minutes * 60);
-  const total = minutes * 60;
-
-  const elapsed = () => (started.current === null ? 0 : (performance.now() - started.current) / 1000);
-  const end = useCallback((done: boolean) => {
-    if (ended.current) return;
-    ended.current = true;
-    onEnd(session(run.current, Math.min(elapsed(), total + 60), done), run.current.miss);
-  }, [onEnd, total]);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      if (started.current === null || ended.current) return;
-      const l = Math.max(0, total - elapsed());
-      setLeft(l);
-      if (l === 0 && atBoundary(run.current)) end(true);
-    }, 200);
-    return () => clearInterval(t);
-  }, [end, total]);
-
-  useEffect(() => () => {
-    if (ended.current || run.current.ok === 0) return;
-    ended.current = true;
-    save(session(run.current, elapsed(), false));
-  }, [save]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (ended.current || e.metaKey || e.ctrlKey !== e.altKey) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        ended.current = true;
-        if (run.current.ok > 0) save(session(run.current, elapsed(), false));
-        onStop();
-        return;
-      }
-      if (e.key.length !== 1) return;
-      e.preventDefault();
-      if (e.repeat) return;
-      if (started.current === null) started.current = performance.now();
-      const r = press(run.current, e.key, e.code);
-      redraw((n) => n + 1);
-      if (r === "end") end(true);
-      else if (r === "ok" && elapsed() >= total && atBoundary(run.current)) end(true);
-    };
-    addEventListener("keydown", onKey);
-    return () => removeEventListener("keydown", onKey);
-  }, [end, onStop, save, total]);
-
-  const r = run.current;
-  const cur = r.tokens[r.i];
-  const exp = cur ? (r.pos < cur.text.length ? cur.text[r.pos] : " ") : "";
-  const mark = (ch: string) => <span className={r.err ? "tr-ea" : "tr-cur"}>{ch}</span>;
-  const done = r.tokens.slice(Math.max(0, r.i - 8), r.i).map((t) => t.text + " ").join("") + (cur?.text.slice(0, r.pos) ?? "");
-  const next = r.tokens.slice(r.i + 1, r.i + 12).map((t) => t.text).join(" ");
-  const spent = total - left;
-
+function WarmLocked({ fs, toFingers }: { fs: FingersState; toFingers: () => void }) {
   return (
     <div className="tr-main center">
-      <span className="tr-bar" role="progressbar" aria-label="Время разминки" aria-valuemin={0} aria-valuemax={total} aria-valuenow={Math.round(spent)}>
-        <i style={{ width: `${(spent / total) * 100}%` }} />
-      </span>
-      <div className="tr-ex">
-        <div className="tr-tape">
-          <span className="done">{done}</span>
-          {cur && (
-            <span className="todo">
-              {r.pos < cur.text.length ? <>{mark(exp)}{cur.text.slice(r.pos + 1)} {next}</> : <>{mark(" ")}{next}</>}
-            </span>
-          )}
-        </div>
+      <span className="pf-lockbig"><Icon name="lock" /></span>
+      <h2 className="pf-h">Сначала <b>поставь пальцы</b></h2>
+      <div className="pf-prog" role="img" aria-label={`Уровень ${fs.level} из 12`}>
+        {fs.levels.slice(0, 12).map((l) => <i key={l.n} className={l.state === "done" ? "ok" : l.state === "current" ? "cur" : undefined} />)}
       </div>
-      <div className="tr-hint" aria-live="polite">
-        {r.hint && <span className="tr-layout">Переключи раскладку на {r.hint === "ru" ? "RU" : "EN"} <Kbd keys="Win+Пробел" /></span>}
-      </div>
+      <span className="pf-dim">Уровень {fs.level} из 12 — разминка откроется после английского нижнего ряда</span>
+      <button type="button" className="t-btn p" onClick={toFingers}><Icon name="hand" />К постановке</button>
     </div>
   );
 }
@@ -234,12 +164,50 @@ function Progress({ st, enable }: { st: TrainerState; enable: () => void }) {
   );
 }
 
+function TrainerSettings({ cfg, saveCfg, resetFingers, clearWarm }: { cfg: Config; saveCfg: (c: Config) => void; resetFingers: () => void; clearWarm: () => void }) {
+  const [ask, setAsk] = useState(false);
+  const [reset, setReset] = useState(false);
+  const [cleared, setCleared] = useState(false);
+  const t = (k: "count" | "remind") => (v: boolean) => saveCfg({ ...cfg, trainer: { ...cfg.trainer, [k]: v } });
+  return (
+    <div className="tr-main tr-set">
+      <h2 className="tr-h">Настройки</h2>
+      <Group label="Напоминание">
+        <Row title="Напоминать о занятии" sub="Раз в день, когда возвращаешься к компьютеру"><Toggle on={cfg.trainer.remind} label="Напоминать о занятии" onChange={t("remind")} /></Row>
+        <Row title="Пример напоминания" sub="Пришлёт уведомление сейчас">
+          <button type="button" className="t-btn s32 g" onClick={() => api.trainerRemindPreview().catch(() => {})}>Показать</button>
+        </Row>
+      </Group>
+      <Group label="Данные">
+        <Row title="Считать ошибки печати" sub="Только числа, без текста, на этом компьютере"><Toggle on={cfg.trainer.count} label="Считать ошибки печати" onChange={t("count")} /></Row>
+        <Row title="Прогресс постановки" sub={reset ? "Сброшен" : ask ? "Уровни и буквы начнутся заново" : "Уровни и буквы"}>
+          {ask ? (
+            <span className="tr-row">
+              <button type="button" className="t-btn s32 g" onClick={() => setAsk(false)}>Отмена</button>
+              <button type="button" className="t-btn s32 p" onClick={() => { resetFingers(); setAsk(false); setReset(true); }}>Сбросить</button>
+            </span>
+          ) : (
+            <button type="button" className="t-btn s32 g" disabled={reset} onClick={() => setAsk(true)}>Сбросить</button>
+          )}
+        </Row>
+        <Row title="Данные разминки" sub={cleared ? "Стёрты" : "Счётчики и история"}>
+          <button type="button" className="t-btn s32 g" disabled={cleared} onClick={() => { clearWarm(); setCleared(true); }}>Стереть</button>
+        </Row>
+      </Group>
+    </div>
+  );
+}
+
 export function Trainer() {
   const [st, setSt] = useState<TrainerState | null>(null);
+  const [fs, setFs] = useState<FingersState | null>(null);
   const [cfg, setCfg] = useState<Config | null>(null);
-  const [tab, setTab] = useState<"warm" | "prog">("warm");
+  const [sec, setSec] = useState<Sec | null>(null);
   const [scr, setScr] = useState<Screen>({ k: "start" });
-  const reload = useCallback(() => { api.trainerState().then(setSt).catch(() => {}); }, []);
+  const reload = useCallback(() => {
+    api.trainerState().then(setSt).catch(() => {});
+    api.fingersState().then(setFs).catch(() => {});
+  }, []);
 
   useEffect(() => {
     reload();
@@ -251,6 +219,10 @@ export function Trainer() {
     return () => { offs.forEach((p) => p.then((f) => f())); };
   }, [reload]);
 
+  useEffect(() => {
+    if (sec === null && fs) setSec(fs.warmOpen ? "warm" : "fingers");
+  }, [fs, sec]);
+
   const saveCfg = (next: Config) => {
     setCfg(next);
     api.setConfig(next).then((c) => { setCfg(c); reload(); }, () => reload());
@@ -260,38 +232,45 @@ export function Trainer() {
     api.trainerMaterial(cfg.trainer.minutes).then((items) => setScr({ k: "ex", items })).catch(() => {});
   };
   const save = useCallback((s: Session) => { api.trainerFinish(s).then(setSt).catch(() => {}); }, []);
-  const onEnd = useCallback((s: Session, misses: number) => {
-    setScr({ k: "res", s, misses });
+  const onEnd = useCallback((r: Run, seconds: number, done: boolean) => {
+    const s = session(r, seconds, done);
+    setScr({ k: "res", s, misses: r.miss });
     save(s);
   }, [save]);
+  const onSave = useCallback((r: Run, seconds: number, done: boolean) => save(session(r, seconds, done)), [save]);
   const onStop = useCallback(() => setScr({ k: "start" }), []);
-  const switchTab = (t: "warm" | "prog") => {
+  const switchTo = (t: Sec) => {
     if (scr.k === "ex") setScr({ k: "start" });
-    setTab(t);
+    setSec(t);
   };
 
   const enable = () => cfg && saveCfg({ ...cfg, trainer: { ...cfg.trainer, count: true } });
+  const nav: [Sec, string, string][] = [["fingers", "hand", "Постановка"], ["warm", "target", "Разминка"], ["prog", "chart", "Прогресс"]];
+
+  const body = () => {
+    if (!st || !cfg || !fs || !sec) return null;
+    if (sec === "fingers") return <Fingers fs={fs} setFs={setFs} reload={reload} />;
+    if (sec === "prog") return <Progress st={st} enable={enable} />;
+    if (sec === "set") return <TrainerSettings cfg={cfg} saveCfg={saveCfg} resetFingers={() => api.fingersReset().then(setFs).catch(() => {})} clearWarm={() => api.trainerClear().then(setSt).catch(() => {})} />;
+    if (!fs.warmOpen) return <WarmLocked fs={fs} toFingers={() => switchTo("fingers")} />;
+    if (scr.k === "ex") return <Exercise items={scr.items} minutes={cfg.trainer.minutes} onEnd={onEnd} save={onSave} onStop={onStop} />;
+    if (scr.k === "res") return <Result s={scr.s} misses={scr.misses} again={go} progress={() => switchTo("prog")} />;
+    return <Start st={st} cfg={cfg} saveCfg={saveCfg} offerSeen={() => api.trainerOfferSeen().then(setSt).catch(() => {})} go={go} />;
+  };
 
   return (
-    <div className="tr">
-      <div className="t-titlebar" data-tauri-drag-region>
-        <AppMark className="tr-mk" />
-        <span className="name" data-tauri-drag-region>Тренажёр</span>
-        <span className="sp" data-tauri-drag-region />
-        <div className="t-win">
-          <button type="button" aria-label="Свернуть" onClick={() => win.minimize()}><Icon name="min" /></button>
-          <button type="button" className="close" aria-label="Закрыть" onClick={() => win.close()}><Icon name="x" /></button>
-        </div>
-      </div>
+    <div className="tr fc-b">
       <div className="tr-body">
-        <nav className="tr-rail" aria-label="Разделы">
-          <button type="button" className="t-row" aria-current={tab === "warm" ? "page" : undefined} onClick={() => switchTab("warm")}><Icon name="target" />Разминка</button>
-          <button type="button" className="t-row" aria-current={tab === "prog" ? "page" : undefined} onClick={() => switchTab("prog")}><Icon name="chart" />Прогресс</button>
+        <nav className="tr-rail" aria-label="Разделы тренажёра">
+          {nav.map(([k, icon, l]) => (
+            <button key={k} type="button" className="t-row" aria-current={sec === k ? "page" : undefined} onClick={() => switchTo(k)}>
+              <Icon name={icon} />{l}{k === "warm" && fs && !fs.warmOpen && <Icon name="lock" className="lk" />}
+            </button>
+          ))}
+          <span className="sp" />
+          <button type="button" className="t-row" aria-current={sec === "set" ? "page" : undefined} onClick={() => switchTo("set")}><Icon name="settings" />Настройки</button>
         </nav>
-        {st && cfg && (tab === "prog" ? <Progress st={st} enable={enable} />
-          : scr.k === "ex" ? <Exercise items={scr.items} minutes={cfg.trainer.minutes} onEnd={onEnd} save={save} onStop={onStop} />
-          : scr.k === "res" ? <Result s={scr.s} misses={scr.misses} again={go} progress={() => switchTab("prog")} />
-          : <Start st={st} cfg={cfg} saveCfg={saveCfg} offerSeen={() => api.trainerOfferSeen().then(setSt).catch(() => {})} go={go} />)}
+        {body()}
       </div>
     </div>
   );
