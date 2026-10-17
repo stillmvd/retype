@@ -21,15 +21,23 @@ function statusText(s: FlyoutState) {
   }
 }
 
+const warm = (streak: number, minutes: number) =>
+  streak > 0 ? `${streak} ${plural(streak, "день", "дня", "дней")} подряд` : `${minutes} ${plural(minutes, "минута", "минуты", "минут")} на слабые клавиши`;
+
 export function Flyout() {
   const [s, setS] = useState<FlyoutState | null>(null);
+  const [streak, setStreak] = useState(0);
   const card = useRef<HTMLDivElement>(null);
   const { status } = useShip();
   const ready = status?.phase === "ready" || status?.phase === "installing";
-  const load = useCallback(() => { api.flyoutState().then(setS).catch(() => {}); }, []);
+  const load = useCallback(() => {
+    api.flyoutState().then(setS).catch(() => {});
+    api.trainerState().then((t) => setStreak(t.streak)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     api.flyoutState().then(setS).catch(() => getCurrentWindow().close());
+    api.trainerState().then((t) => setStreak(t.streak)).catch(() => {});
     const offs = ["status", "config-changed"].map((e) => listen(e, load));
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") getCurrentWindow().close(); };
     addEventListener("keydown", esc);
@@ -84,22 +92,22 @@ export function Flyout() {
             <Toggle on={appOff} label={`Не трогать ${s.app.name}`} onChange={toggleApp} />
           </div>
         )}
+        <div className="t-setrow">
+          <span className="tx"><b>Разминка</b><span>{warm(streak, cfg.trainer.minutes)}</span></span>
+          <button type="button" className="t-btn s32 p" onClick={() => api.openTrainer()}><Icon name="play" />Начать</button>
+        </div>
         {ready ? (
           <div className="fl-foot">
             <span className="fl-up">Готова версия {status?.available?.version}</span>
             <span className="fl-btns">
               <button type="button" className="t-btn s32 p" disabled={status?.phase === "installing"} onClick={() => installNow()}><Icon name="restart" />Перезапустить</button>
-              <button type="button" className="t-btn s32 g ib" aria-label="Тренажёр" title="Тренажёр" onClick={() => api.openTrainer()}><Icon name="target" /></button>
               <button type="button" className="t-btn s32 g ib" aria-label="Настройки" title="Настройки" onClick={() => api.openSettings()}><Icon name="settings" /></button>
             </span>
           </div>
         ) : (
           <div className="fl-foot">
             <span>{s.count} {plural(s.count, "исправление", "исправления", "исправлений")} сегодня</span>
-            <span className="fl-btns">
-              <button type="button" className="t-btn s32 g" onClick={() => api.openTrainer()}><Icon name="target" />Тренажёр</button>
-              <button type="button" className="t-btn s32 g ib" aria-label="Настройки" title="Настройки" onClick={() => api.openSettings()}><Icon name="settings" /></button>
-            </span>
+            <button type="button" className="t-btn s32 g" onClick={() => api.openSettings()}><Icon name="settings" />Настройки</button>
           </div>
         )}
       </div>

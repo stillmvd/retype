@@ -6,7 +6,7 @@ import { api, errorsOf, plural, type About, type Config, type ConfigError, type 
 import { AppMark, Icon, Kbd, Toggle } from "../Icon";
 import "./settings.css";
 
-type Sec = "main" | "repl" | "never" | "dict" | "proc" | "prog" | "keys" | "trainer" | "about";
+type Sec = "main" | "repl" | "never" | "dict" | "proc" | "prog" | "keys" | "about";
 const NAV: [Sec, string, string][] = [
   ["main", "Основное", "settings"],
   ["repl", "Замены", "repl"],
@@ -15,7 +15,6 @@ const NAV: [Sec, string, string][] = [
   ["proc", "Исключения", "app"],
   ["prog", "Программы", "swap"],
   ["keys", "Клавиши", "keyboard"],
-  ["trainer", "Тренажёр", "target"],
   ["about", "О программе", "info"],
 ];
 
@@ -81,12 +80,15 @@ function Main({ cfg, save }: Ctx) {
             <Row title="Вести журнал" sub="Исправления со словами — только на этом компьютере, 30 дней; выключение стирает журнал"><Toggle on={cfg.journal} label="Вести журнал" onChange={(v) => save({ ...cfg, journal: v })} /></Row>
           </Group>
         </div>
-        <Group label="Показывать">
-          <Row title="Подсказку у курсора"><Toggle on={cfg.signals.hint} label="Подсказку у курсора" onChange={g("hint")} /></Row>
-          <Row title="Мигание значка"><Toggle on={cfg.signals.blink} label="Мигание значка" onChange={g("blink")} /></Row>
-          <Row title="Анимацию курсора"><Toggle on={cfg.signals.cursor} label="Анимацию курсора" onChange={g("cursor")} /></Row>
-          <Row title="Звук"><Toggle on={cfg.signals.sound} label="Звук" onChange={g("sound")} /></Row>
-        </Group>
+        <div className="st-stack">
+          <Group label="Показывать">
+            <Row title="Подсказку у курсора"><Toggle on={cfg.signals.hint} label="Подсказку у курсора" onChange={g("hint")} /></Row>
+            <Row title="Мигание значка"><Toggle on={cfg.signals.blink} label="Мигание значка" onChange={g("blink")} /></Row>
+            <Row title="Анимацию курсора"><Toggle on={cfg.signals.cursor} label="Анимацию курсора" onChange={g("cursor")} /></Row>
+            <Row title="Звук"><Toggle on={cfg.signals.sound} label="Звук" onChange={g("sound")} /></Row>
+          </Group>
+          <TrainerGroup cfg={cfg} save={save} />
+        </div>
       </div>
     </>
   );
@@ -370,11 +372,11 @@ function Keys({ cfg, save, errors }: Ctx) {
   );
 }
 
-function TrainerSec({ cfg, save }: Ctx) {
+function TrainerGroup({ cfg, save }: Pick<Ctx, "cfg" | "save">) {
   const [cleared, setCleared] = useState(false);
   const t = (k: "count" | "remind") => (v: boolean) => save({ ...cfg, trainer: { ...cfg.trainer, [k]: v } });
   return (
-    <Group>
+    <Group label="Тренажёр">
       <Row title="Считать ошибки печати" sub="Только числа, без текста, на этом компьютере"><Toggle on={cfg.trainer.count} label="Считать ошибки печати" onChange={t("count")} /></Row>
       <Row title="Напоминать о разминке" sub="Один раз в день, в первую паузу"><Toggle on={cfg.trainer.remind} label="Напоминать о разминке" onChange={t("remind")} /></Row>
       <Row title="Данные тренажёра" sub={cleared ? "Стёрты" : "Счётчики и история разминок"}>
@@ -450,7 +452,7 @@ export function Settings() {
 
   const ctx: Ctx | null = cfg && { cfg, save, errors, setCfg };
   const general = errors.filter((e) => !e.field.startsWith("replacements") && !e.field.startsWith("hotkeys"));
-  const Body = { main: Main, repl: Repl, never: Never, dict: Dict, proc: Procs, prog: Programs, keys: Keys, trainer: TrainerSec, about: AboutSec }[sec];
+  const Body = { main: Main, repl: Repl, never: Never, dict: Dict, proc: Procs, prog: Programs, keys: Keys, about: AboutSec }[sec];
 
   return (
     <div className="st">

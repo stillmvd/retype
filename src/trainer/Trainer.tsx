@@ -14,7 +14,6 @@ const MONTHS = ["января", "февраля", "марта", "апреля", 
 const dayMonth = (date: string) => `${+date.slice(8, 10)} ${MONTHS[+date.slice(5, 7) - 1]}`;
 const ddmm = (date: string) => `${date.slice(8, 10)}.${date.slice(5, 7)}`;
 const dec = (v: number) => v.toFixed(1).replace(".", ",");
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const arrow = (key: string) => key.replace(">", " → ");
 
 function Streak({ n }: { n: number }) {
@@ -60,6 +59,20 @@ function Start({ st, cfg, saveCfg, offerSeen, go }: { st: TrainerState; cfg: Con
       <button type="button" className="t-btn p tr-go" onClick={go}><Icon name="play" />Начать разминку</button>
       {!st.firstRun && weak.length > 0 && <span className="tr-dim">Сегодня: {weak.slice(0, 3).map((p) => `${p.wrong} → ${p.right}`).join(", ")}</span>}
     </div>
+  );
+}
+
+const HAND = [34, 44, 48, 42, 26];
+
+function Hands({ ch, f }: { ch: string; f: { name: string; index: number } }) {
+  return (
+    <span className="tr-hands">
+      <span aria-hidden="true">
+        <span className="tr-hand">{HAND.map((h, i) => <i key={i} className={f.index < 4 && f.index === i ? "on" : ""} style={{ height: h }} />)}</span>
+        <span className="tr-hand">{[...HAND].reverse().map((h, i) => <i key={i} className={f.index >= 4 && f.index - 3 === i ? "on" : ""} style={{ height: h }} />)}</span>
+      </span>
+      <span className="cap"><b>{ch}</b> — {f.name}</span>
+    </span>
   );
 }
 
@@ -119,38 +132,34 @@ function Exercise({ items, minutes, weak, onEnd, save, onStop }: { items: Item[]
   }, [end, onStop, save, total]);
 
   const r = run.current;
-  const from = Math.max(0, r.i - 8);
   const cur = r.tokens[r.i];
   const exp = cur ? (r.pos < cur.text.length ? cur.text[r.pos] : " ") : "";
-  const mark = (ch: string) => (r.err ? <span className="tr-ea">{ch === " " ? " " : ch}</span> : <span className="tr-cur">{ch === " " ? " " : ch}</span>);
-  const name = weak.has(exp.toLowerCase()) ? finger(exp) : null;
+  const mark = (ch: string) => <span className={r.err ? "tr-ea" : "tr-cur"}>{ch}</span>;
+  const f = weak.has(exp.toLowerCase()) ? finger(exp) : null;
+  const done = r.tokens.slice(Math.max(0, r.i - 8), r.i).map((t) => t.text + " ").join("") + (cur?.text.slice(0, r.pos) ?? "");
+  const next = r.tokens.slice(r.i + 1, r.i + 12).map((t) => t.text).join(" ");
+  const spent = total - left;
 
   return (
     <div className="tr-main center">
-      <span className="tr-clock" role="timer" aria-label="Осталось">{clock(Math.ceil(left))}</span>
+      <span className="tr-bar" role="progressbar" aria-label="Время разминки" aria-valuemin={0} aria-valuemax={total} aria-valuenow={Math.round(spent)}>
+        <i style={{ width: `${(spent / total) * 100}%` }} />
+      </span>
       <div className="tr-ex">
-        <div className="tr-para">
-          <span className="done">{r.tokens.slice(from, r.i).map((t) => t.text + " ").join("")}</span>
+        <div className="tr-tape">
+          <span className="done">{done}</span>
           {cur && (
-            <>
-              <span className="cw">
-                <span className="done">{cur.text.slice(0, r.pos)}</span>
-                {r.pos < cur.text.length && mark(cur.text[r.pos])}
-                {cur.text.slice(r.pos + 1)}
-              </span>
-              {r.pos >= cur.text.length ? mark(" ") : " "}
-            </>
+            <span className="todo">
+              {r.pos < cur.text.length ? <>{mark(exp)}{cur.text.slice(r.pos + 1)} {next}</> : <>{mark(" ")}{next}</>}
+            </span>
           )}
-          {r.tokens.slice(r.i + 1, r.i + 40).map((t) => t.text).join(" ")}
         </div>
       </div>
       <div aria-live="polite">
         {r.hint ? (
           <span className="tr-layout">Переключи раскладку на {r.hint === "ru" ? "RU" : "EN"} <Kbd keys="Win+Пробел" /></span>
-        ) : name ? (
-          <span className="tr-fa"><b>{exp.toLowerCase()}</b> — {name}</span>
-        ) : started.current === null ? (
-          <span className="tr-dim">Таймер пойдёт с первой клавиши · Esc — остановить</span>
+        ) : f ? (
+          <Hands ch={exp.toLowerCase()} f={f} />
         ) : null}
       </div>
     </div>
@@ -158,19 +167,25 @@ function Exercise({ items, minutes, weak, onEnd, save, onStop }: { items: Item[]
 }
 
 function Result({ s, misses, again, progress }: { s: Session; misses: number; again: () => void; progress: () => void }) {
-  const top = Object.entries(s.pairs).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const top = Object.entries(s.pairs).sort((a, b) => b[1] - a[1]).slice(0, 4);
   return (
     <div className="tr-main center">
-      <h2 className="tr-h">Готово</h2>
-      <div className="tr-nums">
-        <span className="tr-num"><b>{Math.round(s.accuracy * 100)} %</b><span>точность</span></span>
-        <span className="tr-num"><b>{s.cpm}</b><span>знаков в минуту</span></span>
-        <span className="tr-num"><b>{misses}</b><span>{plural(misses, "ошибка", "ошибки", "ошибок")}</span></span>
-      </div>
-      {top.length > 0 && (
-        <span className="tr-pairs">
-          {top.map(([k, n]) => <span key={k} className="t-chip"><b>{arrow(k)}</b><i>×{n}</i></span>)}
-        </span>
+      <h2 className="tr-h">Готово: <b>{Math.round(s.accuracy * 100)} %</b> точность · <b>{s.cpm}</b> зн/мин</h2>
+      {top.length > 0 ? (
+        <div className="tr-res-rows">
+          {top.map(([k, n]) => {
+            const right = k.slice(-1);
+            const f = finger(right);
+            return (
+              <div key={k} className="t-setrow">
+                <span className="tx"><b className="k">{arrow(k)}</b>{f && <span>{right} — {f.name}</span>}</span>
+                <span className="n">{n} {plural(n, "раз", "раза", "раз")}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <span className="tr-dim">{misses ? `Ошибок: ${misses}` : "Без ошибок"}</span>
       )}
       <div className="tr-row c">
         <button type="button" className="t-btn p" onClick={again}><Icon name="restart" />Ещё раз</button>
@@ -180,26 +195,27 @@ function Result({ s, misses, again, progress }: { s: Session; misses: number; ag
   );
 }
 
-function Chart({ weeks }: { weeks: TrainerState["weeks"] }) {
-  const W = 760, H = 180, padL = 24, padB = 22;
+function Chart({ weeks: all }: { weeks: TrainerState["weeks"] }) {
+  const W = 760, H = 180, padL = 8, padB = 22;
+  const weeks = all.slice(-8);
   const vals = weeks.map((w) => (w.words > 0 ? (w.misses * 100) / w.words : 0));
   const max = Math.max(1, Math.ceil(Math.max(...vals) * 1.15));
-  const x = (i: number) => (weeks.length === 1 ? W / 2 : padL + (i * (W - padL * 2)) / (weeks.length - 1));
-  const y = (v: number) => H - padB - (v / max) * (H - padB - 14);
-  const pts = vals.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  const last = vals.length - 1;
+  const step = (W - padL * 2) / Math.max(weeks.length, 7);
+  const bw = Math.min(56, step * 0.7);
+  const x0 = (W - step * weeks.length) / 2;
+  const y = (v: number) => H - padB - (v / max) * (H - padB - 20);
   return (
-    <svg className="tr-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Ошибки на 100 слов: ${vals.map(dec).join(", ")}`}>
-      <line className="ax" x1="0" x2={W} y1={H - padB} y2={H - padB} />
-      {weeks.length > 1 && <polygon className="ar" points={`${x(0)},${H - padB} ${pts} ${x(last)},${H - padB}`} />}
-      {weeks.length > 1 && <polyline className="ln" points={pts} />}
-      {weeks.map((w, i) => (
-        <g key={w.week}>
-          <circle className="pt" cx={x(i)} cy={y(vals[i])} r="4" />
-          <text x={x(i)} y={H - 6} textAnchor="middle">{ddmm(w.week)}</text>
-        </g>
-      ))}
-      <text className="val" x={x(last) - 6} y={y(vals[last]) - 10} textAnchor={weeks.length === 1 ? "middle" : "end"}>{dec(vals[last])}</text>
+    <svg className="tr-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Ошибки на 100 слов по неделям: ${vals.map(dec).join(", ")}`}>
+      {weeks.map((w, i) => {
+        const bx = x0 + i * step + (step - bw) / 2;
+        return (
+          <g key={w.week}>
+            <rect className={`bar${i === weeks.length - 1 ? " last" : ""}`} x={bx} y={y(vals[i])} width={bw} height={Math.max(0, H - padB - y(vals[i]))} rx="8" />
+            <text x={bx + bw / 2} y={H - 6} textAnchor="middle">{ddmm(w.week)}</text>
+            <text className="val" x={bx + bw / 2} y={y(vals[i]) - 6} textAnchor="middle">{dec(vals[i])}</text>
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -288,10 +304,10 @@ export function Trainer() {
         </div>
       </div>
       <div className="tr-body">
-        <div className="tr-tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === "warm"} onClick={() => switchTab("warm")}>Разминка</button>
-          <button type="button" role="tab" aria-selected={tab === "prog"} onClick={() => switchTab("prog")}>Прогресс</button>
-        </div>
+        <nav className="tr-rail" aria-label="Разделы">
+          <button type="button" className="t-row" aria-current={tab === "warm" ? "page" : undefined} onClick={() => switchTab("warm")}><Icon name="target" />Разминка</button>
+          <button type="button" className="t-row" aria-current={tab === "prog" ? "page" : undefined} onClick={() => switchTab("prog")}><Icon name="chart" />Прогресс</button>
+        </nav>
         {st && cfg && (tab === "prog" ? <Progress st={st} enable={enable} />
           : scr.k === "ex" ? <Exercise items={scr.items} minutes={cfg.trainer.minutes} weak={weak} onEnd={onEnd} save={save} onStop={onStop} />
           : scr.k === "res" ? <Result s={scr.s} misses={scr.misses} again={go} progress={() => switchTab("prog")} />

@@ -25,10 +25,11 @@ const LAT = /^[a-z]$/i;
 const REPEAT_AFTER = 4;
 const MIN_CPM_SECS = 5;
 
-export function finger(ch: string): string | null {
+export function finger(ch: string): { name: string; index: number } | null {
   const lo = ch.toLowerCase();
   const code = Object.keys(KEYS).find((c) => KEYS[c].includes(lo) && (CYR.test(lo) || LAT.test(lo)));
-  return code ? FINGERS.find(([, codes]) => codes.includes(code))?.[0] ?? null : null;
+  const index = code ? FINGERS.findIndex(([, codes]) => codes.includes(code)) : -1;
+  return index < 0 ? null : { name: FINGERS[index][0], index };
 }
 
 export function wrongLayout(key: string, code: string, exp: string): "ru" | "en" | null {
