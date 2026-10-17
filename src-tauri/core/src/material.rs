@@ -60,21 +60,21 @@ fn name(lang: Lang) -> &'static str {
     }
 }
 
-struct Rng(u64);
+pub(crate) struct Rng(pub(crate) u64);
 
 impl Rng {
-    fn next(&mut self) -> u64 {
+    pub(crate) fn next(&mut self) -> u64 {
         self.0 ^= self.0 << 13;
         self.0 ^= self.0 >> 7;
         self.0 ^= self.0 << 17;
         self.0
     }
 
-    fn below(&mut self, n: usize) -> usize {
+    pub(crate) fn below(&mut self, n: usize) -> usize {
         (self.next() % n.max(1) as u64) as usize
     }
 
-    fn chance(&mut self, p: f32) -> bool {
+    pub(crate) fn chance(&mut self, p: f32) -> bool {
         (self.next() % 10_000) as f32 / 10_000.0 < p
     }
 }

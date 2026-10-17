@@ -3,6 +3,7 @@ pub mod config;
 pub mod decide;
 pub mod dict;
 pub mod early;
+pub mod fingers;
 pub mod gesture;
 pub mod keymap;
 pub mod layout;

@@ -100,8 +100,8 @@ impl Store {
             minutes: cfg.trainer.minutes,
             first_run: !cfg.trainer.count && !history.offered,
             has_journal: cfg.journal,
-            streak: trainer::streak(history, date),
-            today: trainer::did_today(history, date),
+            streak: trainer::streak(history, &[], date),
+            today: trainer::did_today(history, &[], date),
             weeks: trainer::weeks(&typing),
             days: trainer::days(history),
             pairs,
@@ -145,7 +145,7 @@ impl Store {
         let date = today();
         let history = self.history();
         let pause = Pause { away_secs, locked_secs, fullscreen: ghbdtn_core::win::context::current().fullscreen, enabled: true };
-        if !trainer::should_remind(&history, &date, &pause) {
+        if !trainer::should_remind(&history, &[], &date, &pause) {
             return None;
         }
         Some(self.text(engine, history, &date))

@@ -172,18 +172,18 @@ pub struct Pause {
     pub enabled: bool,
 }
 
-pub fn did_today(history: &History, today: &str) -> bool {
-    history.sessions.iter().any(|s| s.date == today && s.done)
+pub fn did_today(history: &History, extra: &[String], today: &str) -> bool {
+    history.sessions.iter().any(|s| s.date == today && s.done) || extra.iter().any(|d| d == today)
 }
 
-pub fn should_remind(history: &History, today: &str, p: &Pause) -> bool {
+pub fn should_remind(history: &History, extra: &[String], today: &str, p: &Pause) -> bool {
     let back = p.locked_secs >= REMIND_LOCK_SECS || p.away_secs >= REMIND_IDLE_SECS;
-    p.enabled && !p.fullscreen && back && history.reminded != today && !did_today(history, today)
+    p.enabled && !p.fullscreen && back && history.reminded != today && !did_today(history, extra, today)
 }
 
-pub fn streak(history: &History, today: &str) -> u32 {
+pub fn streak(history: &History, extra: &[String], today: &str) -> u32 {
     let Some(t) = day_number(today) else { return 0 };
-    let done: std::collections::HashSet<i64> = history.sessions.iter().filter(|s| s.done).filter_map(|s| day_number(&s.date)).collect();
+    let done: std::collections::HashSet<i64> = history.sessions.iter().filter(|s| s.done).map(|s| s.date.as_str()).chain(extra.iter().map(String::as_str)).filter_map(day_number).collect();
     let start = if done.contains(&t) { t } else { t - 1 };
     (0..).take_while(|i| done.contains(&(start - i))).count() as u32
 }
@@ -329,24 +329,28 @@ mod tests {
         let today = "2026-10-17";
         let mut h = History::default();
         let p = Pause { away_secs: 700, locked_secs: 0, fullscreen: false, enabled: true };
-        assert!(should_remind(&h, today, &p));
-        assert!(!should_remind(&h, today, &Pause { away_secs: 300, ..p }));
-        assert!(should_remind(&h, today, &Pause { away_secs: 0, locked_secs: 25, ..p }));
-        assert!(!should_remind(&h, today, &Pause { away_secs: 0, locked_secs: 5, ..p }));
-        assert!(!should_remind(&h, today, &Pause { fullscreen: true, ..p }));
-        assert!(!should_remind(&h, today, &Pause { enabled: false, ..p }));
+        assert!(should_remind(&h, &[], today, &p));
+        assert!(!should_remind(&h, &[], today, &Pause { away_secs: 300, ..p }));
+        assert!(should_remind(&h, &[], today, &Pause { away_secs: 0, locked_secs: 25, ..p }));
+        assert!(!should_remind(&h, &[], today, &Pause { away_secs: 0, locked_secs: 5, ..p }));
+        assert!(!should_remind(&h, &[], today, &Pause { fullscreen: true, ..p }));
+        assert!(!should_remind(&h, &[], today, &Pause { enabled: false, ..p }));
         h.reminded = today.into();
-        assert!(!should_remind(&h, today, &p));
+        assert!(!should_remind(&h, &[], today, &p));
         h.reminded.clear();
         let s = |n: i64, done: bool| Session { date: date(n), done, accuracy: 0.9, cpm: 200, ..Session::default() };
         h.sessions = vec![s(3, true), s(2, true), s(1, true), s(0, false)];
-        assert!(should_remind(&h, today, &p));
-        assert_eq!(streak(&h, today), 3);
+        assert!(should_remind(&h, &[], today, &p));
+        assert_eq!(streak(&h, &[], today), 3);
         finish(&mut h, s(0, true), today);
-        assert!(!should_remind(&h, today, &p));
-        assert_eq!(streak(&h, today), 4);
+        assert!(!should_remind(&h, &[], today, &p));
+        assert_eq!(streak(&h, &[], today), 4);
         h.sessions.retain(|x| x.date != date(2));
-        assert_eq!(streak(&h, today), 2);
+        assert_eq!(streak(&h, &[], today), 2);
+        assert_eq!(streak(&h, &[date(2)], today), 4);
+        let fresh = History::default();
+        assert!(did_today(&fresh, &[today.to_string()], today));
+        assert!(!should_remind(&fresh, &[today.to_string()], today, &p));
         assert_eq!(days(&h).len(), 3);
         let mut t = Typing::default();
         t.days.insert("2026-10-12".into(), Day { words: 100, misses: 4, ..Day::default() });

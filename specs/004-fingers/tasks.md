@@ -9,22 +9,22 @@
 
 ## Phase 1: Ядро — уровни, освоение, материал
 
-- [ ] T001 Модуль `src-tauri/core/src/fingers.rs` (+ `pub mod fingers` в `src-tauri/core/src/lib.rs`): `LEVELS`
+- [x] T001 Модуль `src-tauri/core/src/fingers.rs` (+ `pub mod fingers` в `src-tauri/core/src/lib.rs`): `LEVELS`
   (15: номер, название, клавиши, ru/en — research R2), `finger(key) -> u8` (0–7 по схеме `FINGERS` из
   `src/trainer/engine.ts`, пробел — 8), `open_keys(level)`.
-- [ ] T002 Там же: модель `Fingers { level, keys: Map<String, KeyStat { days: Vec<String>, mastered, acc, cpm }>,
+- [x] T002 Там же: модель `Fingers { level, keys: Map<String, KeyStat { days: Vec<String>, mastered, acc, cpm }>,
   sessions, intro }` (serde, data-model) и `finish(&mut Fingers, session, date) -> Option<u8>`: только `done`;
   клавиша учитывается при `n ≥ 10`; порог `acc ≥ 0.95` и `cpm ≥ 100` (cpm = 60000 / (ms / n)); день в `days`
   (уникальные, последние 2); `mastered` при 2 днях; откат освоенной ниже порога — `mastered = false`, остаётся 1 день;
   уровни 14 и 15 — псевдоклавиши `⇧`/`⌫` по итогу занятия; открыть следующий уровень, если все открытые клавиши
   освоены (возврат — номер); `sessions` старше 365 дней удаляются.
-- [ ] T003 Там же: `material(f: &Fingers, seed) -> Vec<Item>` по research R4: уровни 1–9 — `ru.freq` (первые 50 000),
+- [x] T003 Там же: `material(f: &Fingers, seed) -> Vec<Item>` по research R4: уровни 1–9 — `ru.freq` (первые 50 000),
   все буквы открыты, длина 2–8 (уровень 1 — от 1), вес «в работе» ×3; 10–12 — `en.freq`, только открытые латинские;
   13 — знаки между словами; 14 — каждое третье слово с заглавной; 15 — русские слова; ~1600 знаков; без одного
   слова дважды подряд. Источники freq — переиспользовать `material::words` (сделать `pub(crate)`).
-- [ ] T004 Там же: `warm_open(f) = level ≥ 13`, `done_dates(f)` — даты завершённых занятий; `src-tauri/core/src/trainer.rs`:
+- [x] T004 Там же: `warm_open(f) = level ≥ 13`, `done_dates(f)` — даты завершённых занятий; `src-tauri/core/src/trainer.rs`:
   `streak` и `did_today` принимают дополнительные даты постановки (вызовы в `src-tauri/src/trainer.rs` обновить).
-- [ ] T005 Юнит-тесты в `fingers.rs`: открытые клавиши по уровню; освоение только в двух разных днях; < 10 нажатий
+- [x] T005 Юнит-тесты в `fingers.rs`: открытые клавиши по уровню; освоение только в двух разных днях; < 10 нажатий
   не считается; незавершённое занятие не считается; откат и возврат за один день; открытие уровня целиком и номер;
   `warm_open` после 12; материал: 100 % слов из открытых букв на уровнях 1, 4, 10; доля букв «в работе» ≥ 2×
   освоенных (SC-003); 10–12 — только латиница; 13 — есть знаки; 14 — есть заглавные; серия с днями постановки.
