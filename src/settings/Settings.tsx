@@ -6,7 +6,7 @@ import { api, errorsOf, plural, type About, type Config, type ConfigError, type 
 import { AppMark, Icon, Kbd, Toggle } from "../Icon";
 import "./settings.css";
 
-type Sec = "main" | "repl" | "never" | "dict" | "proc" | "prog" | "keys" | "about";
+type Sec = "main" | "repl" | "never" | "dict" | "proc" | "prog" | "keys" | "trainer" | "about";
 const NAV: [Sec, string, string][] = [
   ["main", "Основное", "settings"],
   ["repl", "Замены", "repl"],
@@ -15,6 +15,7 @@ const NAV: [Sec, string, string][] = [
   ["proc", "Исключения", "app"],
   ["prog", "Программы", "swap"],
   ["keys", "Клавиши", "keyboard"],
+  ["trainer", "Тренажёр", "target"],
   ["about", "О программе", "info"],
 ];
 
@@ -369,6 +370,20 @@ function Keys({ cfg, save, errors }: Ctx) {
   );
 }
 
+function TrainerSec({ cfg, save }: Ctx) {
+  const [cleared, setCleared] = useState(false);
+  const t = (k: "count" | "remind") => (v: boolean) => save({ ...cfg, trainer: { ...cfg.trainer, [k]: v } });
+  return (
+    <Group>
+      <Row title="Считать ошибки печати" sub="Только числа, без текста, на этом компьютере"><Toggle on={cfg.trainer.count} label="Считать ошибки печати" onChange={t("count")} /></Row>
+      <Row title="Напоминать о разминке" sub="Один раз в день, в первую паузу"><Toggle on={cfg.trainer.remind} label="Напоминать о разминке" onChange={t("remind")} /></Row>
+      <Row title="Данные тренажёра" sub={cleared ? "Стёрты" : "Счётчики и история разминок"}>
+        <button type="button" className="t-btn s32 g" disabled={cleared} onClick={() => api.trainerClear().then(() => setCleared(true), () => {})}>Стереть</button>
+      </Row>
+    </Group>
+  );
+}
+
 function ago(ms: number) {
   const m = Math.floor((Date.now() - ms) / 60_000);
   return m < 1 ? "только что" : m < 60 ? `${m} мин назад` : `в ${new Date(ms).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}`;
@@ -435,7 +450,7 @@ export function Settings() {
 
   const ctx: Ctx | null = cfg && { cfg, save, errors, setCfg };
   const general = errors.filter((e) => !e.field.startsWith("replacements") && !e.field.startsWith("hotkeys"));
-  const Body = { main: Main, repl: Repl, never: Never, dict: Dict, proc: Procs, prog: Programs, keys: Keys, about: AboutSec }[sec];
+  const Body = { main: Main, repl: Repl, never: Never, dict: Dict, proc: Procs, prog: Programs, keys: Keys, trainer: TrainerSec, about: AboutSec }[sec];
 
   return (
     <div className="st">

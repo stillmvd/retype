@@ -16,12 +16,16 @@ const PATHS: Record<string, string> = {
   chev: "m6 9 6 6 6-6",
   check: "M5 12.5 10 17.5 19 7",
   restart: "M20 12a8 8 0 1 1-2.3-5.7M20 4v4.5h-4.5",
+  target: "M20.5 12a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0ZM16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM12 12h.01",
+  chart: "M4 4v16h16M8 15l3.5-4 3 2.5L20 7",
+  flame: "M12 21c-3.9 0-7-2.8-7-6.6 0-3.1 2.2-5 3.6-7.1.4 1.6 1.3 2.7 2.4 3.2C11 7 12.5 4.7 15 3c-.3 2.6.7 4.3 2.2 6 1.1 1.3 1.8 2.9 1.8 4.8C19 17.9 16 21 12 21Z",
+  play: "M8 5.5v13l10.5-6.5z",
 };
 
 export function Icon({ name, className = "" }: { name: keyof typeof PATHS | string; className?: string }) {
   return (
     <svg className={`gb-ic ${className}`} viewBox="0 0 24 24" aria-hidden="true">
-      <path d={PATHS[name]} fill="none" stroke="currentColor" strokeWidth={name === "close" ? 1.25 : 1.5} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={PATHS[name]} fill={name === "play" ? "currentColor" : "none"} stroke="currentColor" strokeWidth={name === "close" ? 1.25 : 1.5} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

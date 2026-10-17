@@ -89,13 +89,17 @@ export function Flyout() {
             <span className="fl-up">Готова версия {status?.available?.version}</span>
             <span className="fl-btns">
               <button type="button" className="t-btn s32 p" disabled={status?.phase === "installing"} onClick={() => installNow()}><Icon name="restart" />Перезапустить</button>
+              <button type="button" className="t-btn s32 g ib" aria-label="Тренажёр" title="Тренажёр" onClick={() => api.openTrainer()}><Icon name="target" /></button>
               <button type="button" className="t-btn s32 g ib" aria-label="Настройки" title="Настройки" onClick={() => api.openSettings()}><Icon name="settings" /></button>
             </span>
           </div>
         ) : (
           <div className="fl-foot">
             <span>{s.count} {plural(s.count, "исправление", "исправления", "исправлений")} сегодня</span>
-            <button type="button" className="t-btn s32 g" onClick={() => api.openSettings()}><Icon name="settings" />Настройки</button>
+            <span className="fl-btns">
+              <button type="button" className="t-btn s32 g" onClick={() => api.openTrainer()}><Icon name="target" />Тренажёр</button>
+              <button type="button" className="t-btn s32 g ib" aria-label="Настройки" title="Настройки" onClick={() => api.openSettings()}><Icon name="settings" /></button>
+            </span>
           </div>
         )}
       </div>
