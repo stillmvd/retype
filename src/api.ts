@@ -48,7 +48,21 @@ export type TrainerState = {
   weeks: { week: string; words: number; misses: number }[];
   days: { date: string; accuracy: number; cpm: number }[];
   pairs: Pair[];
+  warmOpen: boolean;
 };
+export type LevelInfo = { n: number; name: string; keys: string; show: string; lang: "ru" | "en"; state: "done" | "current" | "closed" };
+export type KeyState = { key: string; finger: number; state: "working" | "mastered"; days: number; acc: number | null; cpm: number | null };
+export type FingersState = {
+  level: number;
+  levels: LevelInfo[];
+  keys: KeyState[];
+  warmOpen: boolean;
+  intro: boolean;
+  streak: number;
+  today: boolean;
+  opened: number | null;
+};
+export type FingerSession = { seconds: number; done: boolean; accuracy: number; cpm: number; keys: Record<string, { n: number; miss: number; ms: number }> };
 export type Session = {
   seconds: number;
   done: boolean;
@@ -78,6 +92,11 @@ export const api = {
   trainerOfferSeen: () => invoke<TrainerState>("trainer_offer_seen"),
   trainerRemindPreview: () => invoke<void>("trainer_remind_preview"),
   trainerClear: () => invoke<TrainerState>("trainer_clear"),
+  fingersState: () => invoke<FingersState>("fingers_state"),
+  fingersMaterial: () => invoke<Item[]>("fingers_material"),
+  fingersFinish: (session: FingerSession) => invoke<FingersState>("fingers_finish", { session }),
+  fingersIntroSeen: () => invoke<FingersState>("fingers_intro_seen"),
+  fingersReset: () => invoke<FingersState>("fingers_reset"),
   flyoutReady: () => invoke<void>("flyout_ready"),
 };
 

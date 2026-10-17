@@ -3,8 +3,10 @@ use ghbdtn_core::keymap::Lang;
 
 const TOP_WORDS: usize = 50_000;
 const MAX_LEN: usize = 8;
-const BLOCK: [&str; 20] = [
-    "ass", "asses", "bitch", "cock", "cunt", "damn", "dick", "fag", "fags", "faggot", "fuck", "nigga", "nigger", "piss", "pussy", "retard", "shit", "slut", "tits", "whore",
+const BLOCK: &[&str] = &[
+    "ass", "asses", "bitch", "cock", "cunt", "damn", "dick", "fag", "fags", "faggot", "fuck", "nigga", "nigger", "piss", "porn", "pussy", "retard", "sex", "sexy",
+    "shit", "slut", "tits", "whore", "сука", "суки", "сучка", "суку", "шлюха", "шлюхи", "шлюху", "жопа", "жопу", "жопе", "говно", "дерьмо", "дерьма", "хрен",
+    "хер", "член", "секс", "ублюдок", "ублюдки", "сволочь", "задница", "задницу", "трахать", "черт", "чёрт",
 ];
 
 fn main() {

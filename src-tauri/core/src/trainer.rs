@@ -215,6 +215,7 @@ pub struct State {
     pub weeks: Vec<Week>,
     pub days: Vec<DayResult>,
     pub pairs: Vec<Pair>,
+    pub warm_open: bool,
 }
 
 pub fn weeks(typing: &Typing) -> Vec<Week> {

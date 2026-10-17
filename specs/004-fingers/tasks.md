@@ -31,14 +31,14 @@
 
 ## Phase 2: Оболочка — хранилище и команды
 
-- [ ] T006 `src-tauri/src/fingers.rs` (новый, `mod fingers` в `src-tauri/src/lib.rs`): `Store` над
+- [x] T006 `src-tauri/src/trainer.rs` (сделано в общем `Store` 003 — общий замок и файлы): хранилище над
   `%APPDATA%\Ghbdtn\fingers.json` (чтение/атомарная запись как `read`/`write` в `src-tauri/src/trainer.rs` — вынести
   их в `pub(crate)`), `state() -> FingersState` (contracts), `material()`, `finish(session)`, `intro_seen()`, `reset()`.
-- [ ] T007 `src-tauri/src/lib.rs`: команды `fingers_state`, `fingers_material`, `fingers_finish`, `fingers_intro_seen`,
+- [x] T007 `src-tauri/src/lib.rs`: команды `fingers_state`, `fingers_material`, `fingers_finish`, `fingers_intro_seen`,
   `fingers_reset`; `S.fingers`; `trainer_state` получает `warmOpen` (поле `warm_open` в `ghbdtn_core::trainer::State`).
-- [ ] T008 Серия: `Store::build` в `src-tauri/src/trainer.rs` передаёт даты постановки в `streak`/`did_today`.
+- [x] T008 Серия: `Store::build` в `src-tauri/src/trainer.rs` передаёт даты постановки в `streak`/`did_today`.
   Напоминание (`remind`, `preview`): при `!warm_open` — «5 минут постановки: уровень N — <название>.».
-- [ ] T009 `src/api.ts`: типы `FingersState`, `KeyState`, `LevelInfo`, `FingerSession`, поле `warmOpen` в
+- [x] T009 `src/api.ts`: типы `FingersState`, `KeyState`, `LevelInfo`, `FingerSession`, поле `warmOpen` в
   `TrainerState`; методы `fingersState`, `fingersMaterial`, `fingersFinish`, `fingersIntroSeen`, `fingersReset`.
 
 ## Phase 3: Хаб «Утилита / Тренажёр» (FR-001a)

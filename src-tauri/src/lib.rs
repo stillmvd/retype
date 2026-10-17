@@ -301,6 +301,31 @@ async fn trainer_offer_seen(s: State<'_, S>) -> Result<ghbdtn_core::trainer::Sta
 }
 
 #[tauri::command]
+async fn fingers_state(s: State<'_, S>) -> Result<trainer::FingersState, ()> {
+    Ok(s.trainer.fingers_state())
+}
+
+#[tauri::command]
+async fn fingers_material(s: State<'_, S>) -> Result<Vec<ghbdtn_core::material::Item>, ()> {
+    Ok(s.trainer.fingers_material())
+}
+
+#[tauri::command]
+async fn fingers_finish(s: State<'_, S>, session: ghbdtn_core::fingers::FingerSession) -> Result<trainer::FingersState, ()> {
+    Ok(s.trainer.fingers_finish(session))
+}
+
+#[tauri::command]
+async fn fingers_intro_seen(s: State<'_, S>) -> Result<trainer::FingersState, ()> {
+    Ok(s.trainer.fingers_intro_seen())
+}
+
+#[tauri::command]
+async fn fingers_reset(s: State<'_, S>) -> Result<trainer::FingersState, ()> {
+    Ok(s.trainer.fingers_reset())
+}
+
+#[tauri::command]
 async fn trainer_clear(s: State<'_, S>) -> Result<ghbdtn_core::trainer::State, ()> {
     Ok(s.trainer.clear(&s.engine))
 }
@@ -555,6 +580,11 @@ pub fn run() {
             about,
             open_settings_cmd,
             open_trainer_cmd,
+            fingers_finish,
+            fingers_intro_seen,
+            fingers_material,
+            fingers_reset,
+            fingers_state,
             trainer_clear,
             trainer_finish,
             trainer_material,

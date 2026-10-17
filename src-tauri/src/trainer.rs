@@ -1,5 +1,6 @@
 use crate::journal::Journal;
 use ghbdtn_core::config::Config;
+use ghbdtn_core::fingers::{self, FingerSession, Fingers, View};
 use ghbdtn_core::material::{self, Item};
 use ghbdtn_core::trainer::{self, History, Pause, Session, State, Typing};
 use ghbdtn_core::win::Engine;
@@ -51,12 +52,69 @@ fn write<T: Serialize>(p: &Path, value: &T) -> std::io::Result<()> {
 pub struct Store {
     typing: PathBuf,
     history: PathBuf,
+    fingers: PathBuf,
     io: Mutex<()>,
+}
+
+#[derive(Serialize)]
+pub struct FingersState {
+    #[serde(flatten)]
+    view: View,
+    streak: u32,
+    today: bool,
+    opened: Option<u8>,
 }
 
 impl Store {
     pub fn new() -> Store {
-        Store { typing: path("typing.json"), history: path("trainer.json"), io: Mutex::new(()) }
+        Store { typing: path("typing.json"), history: path("trainer.json"), fingers: path("fingers.json"), io: Mutex::new(()) }
+    }
+
+    fn fingers(&self) -> Fingers {
+        read(&self.fingers)
+    }
+
+    fn save_fingers(&self, f: &Fingers) -> std::io::Result<()> {
+        write(&self.fingers, f)
+    }
+
+    fn fingers_view(&self, f: &Fingers, opened: Option<u8>) -> FingersState {
+        let date = today();
+        let dates = fingers::done_dates(f);
+        let history = self.history();
+        FingersState { view: fingers::view(f), streak: trainer::streak(&history, &dates, &date), today: trainer::did_today(&history, &dates, &date), opened }
+    }
+
+    pub fn fingers_state(&self) -> FingersState {
+        let _io = self.io.lock().unwrap();
+        self.fingers_view(&self.fingers(), None)
+    }
+
+    pub fn fingers_material(&self) -> Vec<Item> {
+        let _io = self.io.lock().unwrap();
+        fingers::material(&self.fingers(), seed())
+    }
+
+    pub fn fingers_finish(&self, session: FingerSession) -> FingersState {
+        let _io = self.io.lock().unwrap();
+        let mut f = self.fingers();
+        let opened = fingers::finish(&mut f, &session, &today());
+        let _ = self.save_fingers(&f);
+        self.fingers_view(&f, opened)
+    }
+
+    pub fn fingers_intro_seen(&self) -> FingersState {
+        let _io = self.io.lock().unwrap();
+        let mut f = self.fingers();
+        fingers::intro_seen(&mut f);
+        let _ = self.save_fingers(&f);
+        self.fingers_view(&f, None)
+    }
+
+    pub fn fingers_reset(&self) -> FingersState {
+        let _io = self.io.lock().unwrap();
+        let _ = std::fs::remove_file(&self.fingers);
+        self.fingers_view(&Fingers::default(), None)
     }
 
     pub fn flush(&self, engine: &Engine) {
@@ -94,17 +152,20 @@ impl Store {
         if *history != before {
             let _ = self.save_history(history);
         }
+        let f = self.fingers();
+        let dates = fingers::done_dates(&f);
         State {
             counting: cfg.trainer.count,
             remind: cfg.trainer.remind,
             minutes: cfg.trainer.minutes,
             first_run: !cfg.trainer.count && !history.offered,
             has_journal: cfg.journal,
-            streak: trainer::streak(history, &[], date),
-            today: trainer::did_today(history, &[], date),
+            streak: trainer::streak(history, &dates, date),
+            today: trainer::did_today(history, &dates, date),
             weeks: trainer::weeks(&typing),
             days: trainer::days(history),
             pairs,
+            warm_open: fingers::warm_open(&f),
         }
     }
 
@@ -145,7 +206,7 @@ impl Store {
         let date = today();
         let history = self.history();
         let pause = Pause { away_secs, locked_secs, fullscreen: ghbdtn_core::win::context::current().fullscreen, enabled: true };
-        if !trainer::should_remind(&history, &[], &date, &pause) {
+        if !trainer::should_remind(&history, &fingers::done_dates(&self.fingers()), &date, &pause) {
             return None;
         }
         Some(self.text(engine, history, &date))
@@ -157,6 +218,10 @@ impl Store {
     }
 
     fn text(&self, engine: &Engine, mut history: History, date: &str) -> String {
+        let f = self.fingers();
+        if !fingers::warm_open(&f) {
+            return fingers_text(fingers::view(&f).level);
+        }
         let weak = trainer::weak_keys(&trainer::pairs(&self.typing(), &mut history, date));
         reminder_text(engine.config().trainer.minutes, &weak)
     }
@@ -179,8 +244,7 @@ impl Store {
         let _ = self.save_history(&history);
         let weak = trainer::weak_keys(&pairs);
         let words = if engine.config().journal { material::journal_words(&journal.typo_words()) } else { Vec::new() };
-        let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as u64);
-        material::build(&material::Sources { weak: &weak, journal: &words, ru_share: trainer::ru_share(&typing, &date), minutes, seed })
+        material::build(&material::Sources { weak: &weak, journal: &words, ru_share: trainer::ru_share(&typing, &date), minutes, seed: seed() })
     }
 
     pub fn clear(&self, engine: &Engine) -> State {
@@ -190,6 +254,15 @@ impl Store {
         let _ = std::fs::remove_file(&self.history);
         self.build(engine, &mut History::default(), &today())
     }
+}
+
+fn seed() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as u64)
+}
+
+fn fingers_text(level: u8) -> String {
+    let name = fingers::LEVELS[level as usize - 1].name;
+    format!("5 минут постановки: уровень {level} — {name}.")
 }
 
 fn reminder_text(minutes: u8, weak: &[(char, char, f32)]) -> String {
@@ -203,10 +276,11 @@ fn reminder_text(minutes: u8, weak: &[(char, char, f32)]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::reminder_text;
+    use super::{fingers_text, reminder_text};
 
     #[test]
     fn reminder_lines() {
+        assert_eq!(fingers_text(4), "5 минут постановки: уровень 4 — Указательные вниз.");
         assert_eq!(reminder_text(3, &[]), "3 минуты разминки печати.");
         assert_eq!(reminder_text(5, &[('б', 'ю', 0.05), ('р', 'о', 0.03), ('ш', 'щ', 0.02)]), "5 минут на твои слабые клавиши: б → ю, р → о.");
     }
