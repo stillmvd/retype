@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api, type FingerSession, type FingersState, type Item, type LevelInfo } from "../api";
 import { Icon } from "../Icon";
 import { expected, fingerSession, shiftFor, type Mode, type Run } from "./engine";
@@ -12,6 +12,10 @@ const FNAME = ["мизинец левой", "безымянный левой", "
 const SNAKE = [0, 40, 70, 40, 0, -30, -50, -30];
 const MINUTES = 5;
 const SHIFTED = ",?!:";
+const FIT_W = 0.94;
+const FIT_H = 0.5;
+const FIT_MAX = 2.2;
+const FIT_MIN = 0.4;
 const fname = (k: string, f: number) => (k === "⇧" ? "мизинец другой руки" : FNAME[f]);
 
 const keysOf = (l: LevelInfo) => (l.n >= 14 ? [l.keys] : [...l.keys]);
@@ -69,6 +73,29 @@ function Level({ fs, items, start, back }: { fs: FingersState; items: Item[]; st
   );
 }
 
+function Fit({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const box = el?.closest<HTMLElement>(".tr-main");
+    if (!el || !box) return;
+    const fit = () => {
+      el.style.zoom = "1";
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(box);
+      const w = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const h = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const z = Math.min(FIT_MAX, (w * FIT_W) / r.width, (h * FIT_H) / r.height);
+      el.style.zoom = String(Math.max(FIT_MIN, z));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, []);
+  return <div ref={ref} className="pf-zoom">{children}</div>;
+}
+
 function Lesson({ fs, items, done, saved, stop }: { fs: FingersState; items: Item[]; done: (s: FingerSession) => void; saved: (f: FingersState) => void; stop: () => void }) {
   const l = fs.levels[fs.level - 1];
   const onEnd = useCallback((r: Run, seconds: number, ok: boolean) => done(fingerSession(r, seconds, ok)), [done]);
@@ -85,11 +112,13 @@ function Lesson({ fs, items, done, saved, stop }: { fs: FingersState; items: Ite
     }
     const on = codes.map(fingerOf);
     return (
-      <div className="pf-side">
-        <Hand side="l" on={on} />
-        <Keyboard levels={fs.levels} cur={fs.level} lang={l.lang} on={codes} ku={28} />
-        <Hand side="r" on={on} />
-      </div>
+      <Fit>
+        <div className="pf-side">
+          <Hand side="l" on={on} />
+          <Keyboard levels={fs.levels} cur={fs.level} lang={l.lang} on={codes} ku={28} />
+          <Hand side="r" on={on} />
+        </div>
+      </Fit>
     );
   };
   return <Exercise items={items} minutes={MINUTES} mode={modeOf(fs.level)} onEnd={onEnd} save={save} onStop={stop} below={below} label="Время занятия" />;

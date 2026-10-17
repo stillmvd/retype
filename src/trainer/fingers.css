@@ -73,10 +73,6 @@
 .pf-prog i.cur { background: var(--gb-soft); }
 .tr-main:has(.pf-side, .pf-fit) { container-type: inline-size; }
 .pf-side .pf-hand { zoom: 1.2; }
-@container (max-width: 728px) { .pf-side { zoom: .9; } }
-@container (max-width: 655px) { .pf-side { zoom: .8; } }
-@container (max-width: 585px) { .pf-side { zoom: .7; } }
-@container (max-width: 515px) { .pf-side { zoom: .6; } }
-@container (max-width: 450px) { .pf-side { zoom: .52; } }
 @container (max-width: 540px) { .pf-fit .pf-kb { zoom: .82; } }
 @container (max-width: 440px) { .pf-fit .pf-kb { zoom: .7; } }
+.pf-zoom { flex: none; display: flex; justify-content: center; }
