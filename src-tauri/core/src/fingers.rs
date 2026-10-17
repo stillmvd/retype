@@ -43,6 +43,9 @@ pub const PASS_CPM: u32 = 100;
 pub const LESSON_CHARS: usize = 1600;
 const RU_WORDS: &str = include_str!("../data/ru.fingers");
 const EN_WORDS: &str = include_str!("../data/en.fingers");
+const RU_DRILLS: &str = "фыва фыв аф фо оф фы ыф афа офо фаф фал фол фла фло фыл фад фод фаж";
+const EN_DRILLS: &str = "jkl fj jf ja aj jaj jak jal jas jad kaj laj saj daj ajk";
+const SCARCE: usize = 5;
 const POOL: usize = 2_000;
 const PER_LETTER: usize = 60;
 const FOCUS_SHARE: f32 = 0.6;
@@ -274,7 +277,7 @@ fn weights(f: &Fingers) -> BTreeMap<char, f32> {
 fn pool(f: &Fingers, w: &BTreeMap<char, f32>) -> Vec<(&'static str, f32)> {
     let lv = level(f);
     let min_len = if lv == 1 { 1 } else { 2 };
-    let list = if lang(lv) == "en" { EN_WORDS } else { RU_WORDS };
+    let (list, drills) = if lang(lv) == "en" { (EN_WORDS, EN_DRILLS) } else { (RU_WORDS, RU_DRILLS) };
     let fits: Vec<&'static str> = list
         .lines()
         .filter(|word| {
@@ -282,7 +285,12 @@ fn pool(f: &Fingers, w: &BTreeMap<char, f32>) -> Vec<(&'static str, f32)> {
             (min_len..=MAX_LEN).contains(&n) && word.chars().all(|c| w.contains_key(&c))
         })
         .collect();
-    let mut picked: Vec<&'static str> = fits.iter().take(POOL).copied().collect();
+    let scarce: Vec<char> = w.keys().copied().filter(|&c| fits.iter().filter(|word| word.contains(c)).count() < SCARCE).collect();
+    let mut picked: Vec<&'static str> = drills
+        .split(' ')
+        .filter(|d| d.chars().all(|c| w.contains_key(&c)) && d.chars().any(|c| scarce.contains(&c)))
+        .collect();
+    picked.extend(fits.iter().take(POOL));
     for (&c, &weight) in w {
         if weight > 1.0 {
             let have = picked.iter().filter(|word| word.contains(c)).count();
@@ -521,6 +529,23 @@ mod tests {
             assert!(text.chars().all(|c| c == ' ' || open.contains(&c)), "level {lv}: {text}");
             assert!(items.iter().all(|i| i.lang == lang(lv)), "level {lv}");
         }
+    }
+
+    #[test]
+    fn scarce_letters_get_drills() {
+        for (lv, c) in [(1, 'ф'), (10, 'j')] {
+            let text = letters_of(&material(&at(lv), 7));
+            let forms: HashSet<&str> = text.split(' ').filter(|t| t.contains(c)).collect();
+            assert!(forms.len() >= 5, "level {lv}: {forms:?}");
+        }
+        for lv in [2, 3, 11, 12] {
+            let words = if lv >= 10 { EN_WORDS } else { RU_WORDS };
+            let real = letters_of(&material(&at(lv), 7));
+            assert!(real.split(' ').all(|t| words.lines().any(|w| w == t)), "level {lv}: {real}");
+        }
+        let all: Vec<&str> = RU_DRILLS.split(' ').chain(EN_DRILLS.split(' ')).collect();
+        assert!(all.iter().all(|d| d.contains('ф') || d.contains('j')));
+        assert!(all.iter().all(|d| !RU_WORDS.lines().chain(EN_WORDS.lines()).any(|w| w == *d)), "drill duplicates a word");
     }
 
     #[test]
