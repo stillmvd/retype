@@ -13,6 +13,8 @@ const MIN_LEN: usize = 4;
 const OUTRANK: u32 = 5;
 const NEAR_WEIGHT: f32 = 0.5;
 const FAR_MIN_LEN: usize = 6;
+const FAR_GAP2_LEN: usize = 8;
+const FAR_GAP2_FREQ: u32 = 5000;
 const SHORT_MIN_FREQ: u32 = 20_000;
 const SHORT_LEN: usize = 3;
 const PAIR_LEN: usize = 2;
@@ -253,7 +255,8 @@ fn far_fix(typed: &str, chars: &[char], prev: Option<&str>, lang: Lang, dicts: &
         if top < best - GAP {
             break;
         }
-        if w.len().abs_diff(chars.len()) > 2 {
+        let gap = w.len().abs_diff(chars.len());
+        if gap > 2 || (gap == 2 && (chars.len() < FAR_GAP2_LEN || *f < FAR_GAP2_FREQ)) {
             continue;
         }
         let reach = limit.min((top - best + GAP) / 4.0);
