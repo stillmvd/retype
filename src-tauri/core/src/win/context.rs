@@ -95,28 +95,36 @@ fn class_name(hwnd: HWND) -> String {
     String::from_utf16_lossy(&buf[..n.max(0) as usize])
 }
 
-fn fullscreen(hwnd: HWND) -> bool {
-    if let Ok(state) = unsafe { SHQueryUserNotificationState() } {
-        if state == QUNS_RUNNING_D3D_FULL_SCREEN || state == QUNS_PRESENTATION_MODE {
-            return true;
-        }
+const TYPING_APPS: &[&str] = &[
+    "firefox.exe", "chrome.exe", "msedge.exe", "brave.exe", "opera.exe", "vivaldi.exe", "yandex.exe", "browser.exe",
+    "windowsterminal.exe", "wt.exe", "code.exe", "vscodium.exe", "cursor.exe", "telegram.exe", "bitrix24.exe",
+    "notepad.exe", "explorer.exe",
+];
+
+fn judge_fullscreen(exe: &str, shell_class: bool, covers_monitor: bool, bordered: bool, d3d: bool, presentation: bool) -> bool {
+    if presentation {
+        return true;
     }
-    if matches!(class_name(hwnd).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd") {
+    if shell_class || !covers_monitor || TYPING_APPS.contains(&exe) {
         return false;
     }
+    d3d || !bordered
+}
+
+fn fullscreen(hwnd: HWND, exe: &str) -> bool {
+    let state = unsafe { SHQueryUserNotificationState() }.ok();
+    let presentation = state == Some(QUNS_PRESENTATION_MODE);
+    let d3d = state == Some(QUNS_RUNNING_D3D_FULL_SCREEN);
+    let shell_class = matches!(class_name(hwnd).as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd");
     let style = unsafe { GetWindowLongW(hwnd, GWL_STYLE) } as u32;
-    if style & (WS_CAPTION.0 | WS_THICKFRAME.0) != 0 {
-        return false;
-    }
-    unsafe {
+    let bordered = style & (WS_CAPTION.0 | WS_THICKFRAME.0) != 0;
+    let covers_monitor = unsafe {
         let mut rect = RECT::default();
-        if GetWindowRect(hwnd, &mut rect).is_err() {
-            return false;
-        }
         let mut info = MONITORINFO { cbSize: std::mem::size_of::<MONITORINFO>() as u32, ..Default::default() };
         let mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
-        GetMonitorInfoW(mon, &mut info).as_bool() && rect == info.rcMonitor
-    }
+        GetWindowRect(hwnd, &mut rect).is_ok() && GetMonitorInfoW(mon, &mut info).as_bool() && rect == info.rcMonitor
+    };
+    judge_fullscreen(exe, shell_class, covers_monitor, bordered, d3d, presentation)
 }
 
 fn password(focus: HWND) -> bool {
@@ -161,7 +169,8 @@ fn compute() -> Context {
         }
         let mut info = GUITHREADINFO { cbSize: std::mem::size_of::<GUITHREADINFO>() as u32, ..Default::default() };
         let focus = if GetGUIThreadInfo(thread, &mut info).is_ok() { info.hwndFocus } else { HWND::default() };
-        Context { exe, elevated: elevated(pid), fullscreen: fullscreen(hwnd), password: password(focus), own: pid == GetCurrentProcessId() }
+        let fs = fullscreen(hwnd, &exe);
+        Context { exe, elevated: elevated(pid), fullscreen: fs, password: password(focus), own: pid == GetCurrentProcessId() }
     }
 }
 
@@ -200,4 +209,35 @@ pub fn run(tx: Sender<HookEvent>) -> std::thread::JoinHandle<()> {
             }
         })
         .expect("context thread")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::judge_fullscreen as j;
+
+    #[test]
+    fn game_on_other_monitor_does_not_mute() {
+        assert!(!j("code.exe", false, false, true, true, false));
+        assert!(!j("somewindow.exe", false, false, true, true, false));
+    }
+
+    #[test]
+    fn real_fullscreen_mutes() {
+        assert!(j("dota2.exe", false, true, false, false, false));
+        assert!(j("game.exe", false, true, true, true, false));
+        assert!(j("mpc-hc64.exe", false, true, false, false, false));
+    }
+
+    #[test]
+    fn maximized_and_typing_apps_stay_active() {
+        assert!(!j("game.exe", false, true, true, false, false));
+        assert!(!j("firefox.exe", false, true, false, false, false));
+        assert!(!j("windowsterminal.exe", false, true, false, true, false));
+        assert!(!j("x.exe", true, true, false, false, false));
+    }
+
+    #[test]
+    fn presentation_mode_always_mutes() {
+        assert!(j("firefox.exe", false, false, true, false, true));
+    }
 }
