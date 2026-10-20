@@ -365,8 +365,18 @@ fn pick<'a>(prev: Option<&str>, close: &[&'a str], lang: Lang, dicts: &Dictionar
     match close {
         [] => None,
         [one] => Some((one, Rule::Best)),
-        _ => by_context(prev, close, lang, dicts).map(|c| (c, Rule::Context)),
+        _ => by_context(prev, close, lang, dicts)
+            .map(|c| (c, Rule::Context))
+            .or_else(|| tech_pick(close, lang).map(|c| (c, Rule::Tech))),
     }
+}
+
+fn tech_pick<'a>(close: &[&'a str], lang: Lang) -> Option<&'a str> {
+    if lang != Lang::En {
+        return None;
+    }
+    let mut found = close.iter().filter(|c| c.len() >= 6 && include_str!("../data/tech.txt").lines().any(|t| t.trim() == **c));
+    found.next().filter(|_| found.next().is_none()).copied()
 }
 
 fn split_fix(chars: &[char], lang: Lang, dicts: &Dictionaries) -> Option<String> {
@@ -673,6 +683,20 @@ mod tests {
         assert_eq!(best_fix("кринжовый", Lang::Ru, dicts()), None);
         assert_eq!(best_fix("Вилдидмо", Lang::Ru, dicts()), None);
         assert_eq!(best_fix("сщдщкщы", Lang::Ru, dicts()), None);
+        for w in ["налдро", "нетрук", "хлолщл", "спиратили"] {
+            assert_eq!(best_fix(w, Lang::Ru, dicts()), None, "{w}");
+        }
+    }
+
+    #[test]
+    fn tech_word_wins_close_tie() {
+        for w in ["claide", "clauide", "calude"] {
+            assert_eq!(best_fix(w, Lang::En, dicts()).as_deref(), Some("claude"), "{w}");
+        }
+        assert_eq!(best_fix("gogole", Lang::En, dicts()).as_deref(), Some("google"));
+        assert_eq!(best_fix("defauolt", Lang::En, dicts()).as_deref(), Some("default"));
+        assert_eq!(best_fix("backgrounf", Lang::En, dicts()).as_deref(), Some("background"));
+        assert_eq!(best_fix("pixrl", Lang::En, dicts()).as_deref(), Some("pixel"));
     }
 
     #[test]

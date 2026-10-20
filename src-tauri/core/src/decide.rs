@@ -38,10 +38,11 @@ pub enum Rule {
     DoubleCaps,
     Yo,
     WeakWord,
+    Tech,
 }
 
 impl Rule {
-    pub const ALL: [Rule; 19] = [
+    pub const ALL: [Rule; 20] = [
         Rule::Replace,
         Rule::Layout,
         Rule::LayoutAfterShort,
@@ -61,6 +62,7 @@ impl Rule {
         Rule::DoubleCaps,
         Rule::Yo,
         Rule::WeakWord,
+        Rule::Tech,
     ];
 
     pub fn name(self) -> &'static str {
@@ -84,6 +86,7 @@ impl Rule {
             Rule::DoubleCaps => "double_caps",
             Rule::Yo => "yo",
             Rule::WeakWord => "weak_word",
+            Rule::Tech => "tech",
         }
     }
 }

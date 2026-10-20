@@ -12,6 +12,8 @@ fn main() {
         let l = if w.chars().any(|c| c.is_ascii_alphabetic()) { Lang::En } else { Lang::Ru };
         let t = std::time::Instant::now();
         let fix = ghbdtn_core::typo::fix_rule(w, prev, l, &d).map(|(t, r)| format!("{t} [{}]", r.name()));
+        let lay = ghbdtn_core::layout::layout_after(&ghbdtn_core::word::keys_for(w, l), l, prev, &d).map(|(t, r)| format!("{t} [{}]", r.name()));
+        println!("{arg}: layout={lay:?}");
         println!("{arg}: known={} freq={} fix={fix:?} {:?}", d.known(l, w), d.freq(l, w), t.elapsed());
     }
 }
