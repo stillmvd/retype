@@ -215,7 +215,7 @@ fn hotkey_for(program: &Program, toggle: impl FnOnce() -> Option<Toggle>, dead: 
     (program.switch == Switch::Hotkey && !dead).then(toggle).flatten()
 }
 
-const DLL_NAME: &str = "ghbdtn_layout.dll";
+const DLL_NAME: &str = "retype_layout.dll";
 const THREAD_LIMIT: Duration = Duration::from_millis(250);
 
 struct LayoutDll {
@@ -238,7 +238,7 @@ fn layout_dll() -> Option<&'static LayoutDll> {
         unsafe {
             let module = LoadLibraryW(PCWSTR(wide.as_ptr())).ok()?;
             let hook = GetProcAddress(module, s!("layout_hook"))?;
-            Some(LayoutDll { module, hook: Some(std::mem::transmute::<unsafe extern "system" fn() -> isize, unsafe extern "system" fn(i32, WPARAM, LPARAM) -> LRESULT>(hook)), message: RegisterWindowMessageW(w!("GhbdtnActivateLayout")) })
+            Some(LayoutDll { module, hook: Some(std::mem::transmute::<unsafe extern "system" fn() -> isize, unsafe extern "system" fn(i32, WPARAM, LPARAM) -> LRESULT>(hook)), message: RegisterWindowMessageW(w!("RetypeActivateLayout")) })
         }
     })
     .as_ref()

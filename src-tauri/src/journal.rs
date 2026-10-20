@@ -1,4 +1,4 @@
-use ghbdtn_core::stats::day_number;
+use retype_core::stats::day_number;
 use serde::Serialize;
 use std::io::Write;
 use std::path::PathBuf;
@@ -41,7 +41,7 @@ pub struct Journal {
 
 impl Journal {
     pub fn new() -> Journal {
-        let dir = ghbdtn_core::config::Config::default_path().with_file_name("log");
+        let dir = retype_core::config::Config::default_path().with_file_name("log");
         Journal { dir, day: Mutex::new(String::new()) }
     }
 

@@ -402,7 +402,7 @@ function AboutSec() {
   if (!a) return null;
   return (
     <>
-      <Row title={`Ghbdtn ${a.version}`} sub="Набранный текст не пишется на диск и никуда не отправляется"><AppMark className="gb-mk" /></Row>
+      <Row title={`Retype ${a.version}`} sub="Набранный текст не пишется на диск и никуда не отправляется"><AppMark className="gb-mk" /></Row>
       <Updates />
       <Group label="Словари">
         {a.licenses.map((l) => <Row key={l.name} title={l.name} sub={`${l.source} · ${l.license}`}><span /></Row>)}

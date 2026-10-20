@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Ghbdtn",
+  "productName": "Retype",
   "version": "../package.json",
-  "identifier": "com.stillmvd.ghbdtn",
+  "identifier": "com.stillmvd.retype",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1430",
@@ -25,7 +25,7 @@
     ],
     "createUpdaterArtifacts": true,
     "resources": {
-      "target/release/ghbdtn_layout.dll": "ghbdtn_layout.dll"
+      "target/release/retype_layout.dll": "retype_layout.dll"
     },
     "windows": {
       "nsis": {
@@ -42,7 +42,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY1NENBODBBMjMxMUE4NTAKUldSUXFCRWpDcWhNWmNodHArQzEzMjV1VXNXWlp4eVRmRERyVmV4VTYwVTM5TW9FUmpYZHE4YU0K",
       "endpoints": [
-        "https://github.com/stillmvd/ghbdtn/releases/latest/download/latest.json"
+        "https://github.com/stillmvd/retype/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"

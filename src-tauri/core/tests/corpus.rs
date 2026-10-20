@@ -1,11 +1,11 @@
-use ghbdtn_core::config::{Config, Sensitivity};
-use ghbdtn_core::decide::{decide, Rule, WordInput};
-use ghbdtn_core::dict::Dictionaries;
-use ghbdtn_core::early::early_fix;
-use ghbdtn_core::keymap::Lang;
-use ghbdtn_core::typo::{adjacent, fix_after};
-use ghbdtn_core::undo::ActionKind;
-use ghbdtn_core::word::{keys_for, render};
+use retype_core::config::{Config, Sensitivity};
+use retype_core::decide::{decide, Rule, WordInput};
+use retype_core::dict::Dictionaries;
+use retype_core::early::early_fix;
+use retype_core::keymap::Lang;
+use retype_core::typo::{adjacent, fix_after};
+use retype_core::undo::ActionKind;
+use retype_core::word::{keys_for, render};
 use std::collections::BTreeMap;
 use std::time::Instant;
 
@@ -572,7 +572,7 @@ fn rule_stats() {
     let dicts = Dictionaries::load();
     let bare = Dictionaries::load().without_forms();
     let mut cfg = config();
-    cfg.features.early = std::env::var_os("GHBDTN_NO_EARLY").is_none();
+    cfg.features.early = std::env::var_os("RETYPE_NO_EARLY").is_none();
     let cases = cases(&dicts);
     let mut rules: BTreeMap<(&str, &str), Tally> = BTreeMap::new();
     let mut sets: BTreeMap<String, SetTally> = BTreeMap::new();

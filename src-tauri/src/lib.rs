@@ -6,10 +6,10 @@ mod trainer;
 mod tray;
 
 use crossbeam_channel::Sender;
-use ghbdtn_core::config::{Config, ConfigError, Mode};
-use ghbdtn_core::keymap::Lang;
-use ghbdtn_core::words;
-use ghbdtn_core::win::{hook::parse_hotkey, lang, CoreEvent, Engine, SilentReason, Status};
+use retype_core::config::{Config, ConfigError, Mode};
+use retype_core::keymap::Lang;
+use retype_core::words;
+use retype_core::win::{hook::parse_hotkey, lang, CoreEvent, Engine, SilentReason, Status};
 use serde::Serialize;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -281,22 +281,22 @@ pub fn open_settings(app: &AppHandle) {
 }
 
 #[tauri::command]
-async fn trainer_material(s: State<'_, S>, minutes: u8) -> Result<Vec<ghbdtn_core::material::Item>, ()> {
+async fn trainer_material(s: State<'_, S>, minutes: u8) -> Result<Vec<retype_core::material::Item>, ()> {
     Ok(s.trainer.material(&s.engine, &s.journal, minutes))
 }
 
 #[tauri::command]
-async fn trainer_state(s: State<'_, S>) -> Result<ghbdtn_core::trainer::State, ()> {
+async fn trainer_state(s: State<'_, S>) -> Result<retype_core::trainer::State, ()> {
     Ok(s.trainer.state(&s.engine))
 }
 
 #[tauri::command]
-async fn trainer_finish(s: State<'_, S>, session: ghbdtn_core::trainer::Session) -> Result<ghbdtn_core::trainer::State, ()> {
+async fn trainer_finish(s: State<'_, S>, session: retype_core::trainer::Session) -> Result<retype_core::trainer::State, ()> {
     Ok(s.trainer.finish(&s.engine, session))
 }
 
 #[tauri::command]
-async fn trainer_offer_seen(s: State<'_, S>) -> Result<ghbdtn_core::trainer::State, ()> {
+async fn trainer_offer_seen(s: State<'_, S>) -> Result<retype_core::trainer::State, ()> {
     Ok(s.trainer.offer_seen(&s.engine))
 }
 
@@ -306,12 +306,12 @@ async fn fingers_state(s: State<'_, S>) -> Result<trainer::FingersState, ()> {
 }
 
 #[tauri::command]
-async fn fingers_material(s: State<'_, S>) -> Result<Vec<ghbdtn_core::material::Item>, ()> {
+async fn fingers_material(s: State<'_, S>) -> Result<Vec<retype_core::material::Item>, ()> {
     Ok(s.trainer.fingers_material())
 }
 
 #[tauri::command]
-async fn fingers_finish(s: State<'_, S>, session: ghbdtn_core::fingers::FingerSession) -> Result<trainer::FingersState, ()> {
+async fn fingers_finish(s: State<'_, S>, session: retype_core::fingers::FingerSession) -> Result<trainer::FingersState, ()> {
     Ok(s.trainer.fingers_finish(session))
 }
 
@@ -326,7 +326,7 @@ async fn fingers_reset(s: State<'_, S>) -> Result<trainer::FingersState, ()> {
 }
 
 #[tauri::command]
-async fn trainer_clear(s: State<'_, S>) -> Result<ghbdtn_core::trainer::State, ()> {
+async fn trainer_clear(s: State<'_, S>) -> Result<retype_core::trainer::State, ()> {
     Ok(s.trainer.clear(&s.engine))
 }
 
@@ -394,7 +394,7 @@ fn open_hub(app: &AppHandle, tab: Option<&str>) {
     }
     let url = tab.map_or_else(|| "index.html".to_string(), |t| format!("index.html#{t}"));
     let built = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App(url.into()))
-        .title("Ghbdtn")
+        .title("Retype")
         .inner_size(1040.0, 720.0)
         .min_inner_size(720.0, 520.0)
         .decorations(false)
@@ -439,7 +439,7 @@ fn toggle_flyout(app: &AppHandle, rect: tauri::Rect) {
     }
     *s.flyout_at.lock().unwrap() = Some(rect);
     let Ok(w) = WebviewWindowBuilder::new(app, "flyout", WebviewUrl::App("index.html".into()))
-        .title("Ghbdtn")
+        .title("Retype")
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -622,15 +622,15 @@ pub fn run() {
             refresh(&shared);
 
             let (a, s) = (handle.clone(), shared.clone());
-            std::thread::Builder::new().name("ghbdtn-events".into()).spawn(move || pump(a, s, rx))?;
+            std::thread::Builder::new().name("retype-events".into()).spawn(move || pump(a, s, rx))?;
             let (a, s) = (handle.clone(), shared.clone());
-            std::thread::Builder::new().name("ghbdtn-watch".into()).spawn(move || watch(a, s))?;
+            std::thread::Builder::new().name("retype-watch".into()).spawn(move || watch(a, s))?;
             let (a, s) = (handle.clone(), shared.clone());
-            std::thread::Builder::new().name("ghbdtn-tally".into()).spawn(move || tally_loop(a, s))?;
+            std::thread::Builder::new().name("retype-tally".into()).spawn(move || tally_loop(a, s))?;
             Ok(())
         })
         .build(tauri::generate_context!())
-        .expect("ghbdtn")
+        .expect("retype")
         .run(|app, event| match event {
             tauri::RunEvent::ExitRequested { api, code: None, .. } => api.prevent_exit(),
             tauri::RunEvent::Exit => {

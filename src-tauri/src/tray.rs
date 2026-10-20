@@ -63,11 +63,11 @@ impl Tray {
     pub fn build(app: &AppHandle, on_left: impl Fn(&AppHandle, tauri::Rect) + Send + Sync + 'static) -> tauri::Result<Tray> {
         let face = Face { look: Look::On, ru: true, light: crate::sys::taskbar_light() };
         let menu = Menu::with_items(app, &[
-            &MenuItem::with_id(app, "settings", "Открыть Ghbdtn", true, None::<&str>)?,
+            &MenuItem::with_id(app, "settings", "Открыть Retype", true, None::<&str>)?,
             &MenuItem::with_id(app, "quit", "Выйти", true, None::<&str>)?,
         ])?;
         let mut builder = TrayIconBuilder::with_id("main")
-            .tooltip("Ghbdtn")
+            .tooltip("Retype")
             .menu(&menu)
             .show_menu_on_left_click(false)
             .on_menu_event(|app, e| match e.id.as_ref() {

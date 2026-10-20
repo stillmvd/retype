@@ -1,6 +1,6 @@
-use ghbdtn_core::config::{Insert, Program, Switch};
-use ghbdtn_core::keymap::{key_of, Lang};
-use ghbdtn_core::win::{hook, lang, CoreEvent, Engine};
+use retype_core::config::{Insert, Program, Switch};
+use retype_core::keymap::{key_of, Lang};
+use retype_core::win::{hook, lang, CoreEvent, Engine};
 use std::sync::atomic::Ordering::SeqCst;
 use std::time::Duration;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
@@ -126,11 +126,11 @@ fn find_notepad(file: &str) -> HWND {
 }
 
 fn main() {
-    let dir = std::env::temp_dir().join("ghbdtn-selftest");
+    let dir = std::env::temp_dir().join("retype-selftest");
     let _ = std::fs::create_dir_all(&dir);
     let cfg_path = dir.join("config.toml");
     let _ = std::fs::remove_file(&cfg_path);
-    let file = "ghbdtn-selftest.txt";
+    let file = "retype-selftest.txt";
     let doc = dir.join(file);
     std::fs::write(&doc, "").unwrap();
     hook::ACCEPT_INJECTED.store(true, SeqCst);
@@ -360,7 +360,7 @@ fn main() {
     c.features.double_shift = false;
     engine.set_config(c);
 
-    let sentinel = "ghbdtn-selftest-буфер";
+    let sentinel = "retype-selftest-буфер";
     let _ = clipboard_win::set_clipboard_string(sentinel);
     for (insert, switch) in [(Insert::Paste, Switch::Message), (Insert::Keys, Switch::Message), (Insert::Unicode, Switch::Hotkey), (Insert::Unicode, Switch::Thread)] {
         let mut c = engine.config();

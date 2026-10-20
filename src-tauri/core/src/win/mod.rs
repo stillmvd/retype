@@ -86,7 +86,7 @@ impl Engine {
         let tally: Arc<Mutex<Day>> = Arc::default();
         let sink = tally.clone();
         std::thread::Builder::new()
-            .name("ghbdtn-engine".into())
+            .name("retype-engine".into())
             .spawn(move || Worker::new(shared, path, events, slot, sink).run(rx))
             .expect("engine thread");
         Engine { config, control: tx, fresh, words_gen: Arc::default(), tally }
@@ -95,7 +95,7 @@ impl Engine {
     pub fn reload_words(&self, text: String) {
         let gen = self.words_gen.fetch_add(1, SeqCst) + 1;
         let (current, fresh, control) = (self.words_gen.clone(), self.fresh.clone(), self.control.clone());
-        let _ = std::thread::Builder::new().name("ghbdtn-words".into()).spawn(move || {
+        let _ = std::thread::Builder::new().name("retype-words".into()).spawn(move || {
             let mut d = Dictionaries::load();
             d.add_user_words(&text);
             let mut slot = fresh.lock().unwrap();

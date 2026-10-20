@@ -84,7 +84,7 @@ fn main() {
     let mut recs: Vec<(u32, u32, u8)> = list
         .iter()
         .map(|(k, c)| {
-            let q = ((*c as f64).ln() * ghbdtn_core::dict::BIGRAM_SCALE).round().min(255.0) as u8;
+            let q = ((*c as f64).ln() * retype_core::dict::BIGRAM_SCALE).round().min(255.0) as u8;
             (ids[words[&((k >> 32) as u32)]], ids[words[&(*k as u32)]], q)
         })
         .collect();

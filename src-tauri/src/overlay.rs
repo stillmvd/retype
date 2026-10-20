@@ -1,6 +1,6 @@
 use crate::sys;
 use crossbeam_channel::{bounded, unbounded, Receiver, Sender};
-use ghbdtn_core::config::Signals;
+use retype_core::config::Signals;
 use std::result::Result::Ok;
 use std::time::{Duration, Instant};
 use windows::core::{w, Interface, PCWSTR};
@@ -40,9 +40,9 @@ struct Scene {
 pub fn start() -> Sender<Hint> {
     let (tx, rx) = unbounded();
     let (tid_tx, tid_rx) = bounded(1);
-    std::thread::Builder::new().name("ghbdtn-hint".into()).spawn(move || paint(tid_tx)).expect("hint thread");
+    std::thread::Builder::new().name("retype-hint".into()).spawn(move || paint(tid_tx)).expect("hint thread");
     let tid = tid_rx.recv().unwrap_or(0);
-    std::thread::Builder::new().name("ghbdtn-overlay".into()).spawn(move || run(tid, rx)).expect("overlay thread");
+    std::thread::Builder::new().name("retype-overlay".into()).spawn(move || run(tid, rx)).expect("overlay thread");
     tx
 }
 
@@ -143,7 +143,7 @@ unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> 
 impl Windows {
     unsafe fn create() -> Option<Self> {
         let module = GetModuleHandleW(None).ok()?;
-        let class = w!("GhbdtnHint");
+        let class = w!("RetypeHint");
         let wc = WNDCLASSEXW {
             cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
             lpfnWndProc: Some(proc),
@@ -484,7 +484,7 @@ fn present(hwnd: HWND, r: RECT, draw: impl FnOnce(*mut GpGraphics)) {
 
 fn gui_caret() -> Option<RECT> {
     unsafe {
-        let (_, thread) = ghbdtn_core::win::lang::input_thread();
+        let (_, thread) = retype_core::win::lang::input_thread();
         let mut gi = GUITHREADINFO { cbSize: std::mem::size_of::<GUITHREADINFO>() as u32, ..Default::default() };
         GetGUIThreadInfo(thread, &mut gi).ok()?;
         if gi.hwndCaret.is_invalid() {

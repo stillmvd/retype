@@ -78,8 +78,8 @@ export function Flyout() {
       <div className="fl" ref={card}>
         <div className="fl-head">
           <Mark look={look} ru={s.ru} />
-          <span className="fl-title"><b>Ghbdtn</b><span>{statusText(s)}</span></span>
-          <Toggle on={cfg.enabled} label="Ghbdtn" onChange={(v) => save({ ...cfg, enabled: v })} />
+          <span className="fl-title"><b>Retype</b><span>{statusText(s)}</span></span>
+          <Toggle on={cfg.enabled} label="Retype" onChange={(v) => save({ ...cfg, enabled: v })} />
         </div>
         <div className="fl-rows">
           {FEATURES.map(([k, l]) => (
@@ -111,13 +111,13 @@ export function Flyout() {
             <span className="fl-up">Готова версия {status?.available?.version}</span>
             <span className="fl-btns">
               <button type="button" className="t-btn s32 p" disabled={status?.phase === "installing"} onClick={() => installNow()}><Icon name="restart" />Перезапустить</button>
-              <button type="button" className="t-btn s32 g ib" aria-label="Открыть Ghbdtn" title="Открыть Ghbdtn" onClick={() => api.openSettings()}><AppMark className="fl-am" /></button>
+              <button type="button" className="t-btn s32 g ib" aria-label="Открыть Retype" title="Открыть Retype" onClick={() => api.openSettings()}><AppMark className="fl-am" /></button>
             </span>
           </div>
         ) : (
           <div className="fl-foot">
             <span>{s.count} {plural(s.count, "исправление", "исправления", "исправлений")} сегодня</span>
-            <button type="button" className="t-btn s32 g" onClick={() => api.openSettings()}><AppMark className="fl-am" />Открыть Ghbdtn</button>
+            <button type="button" className="t-btn s32 g" onClick={() => api.openSettings()}><AppMark className="fl-am" />Открыть Retype</button>
           </div>
         )}
       </div>

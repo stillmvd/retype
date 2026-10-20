@@ -1,5 +1,5 @@
-use ghbdtn_core::dict::Dictionaries;
-use ghbdtn_core::keymap::Lang;
+use retype_core::dict::Dictionaries;
+use retype_core::keymap::Lang;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 

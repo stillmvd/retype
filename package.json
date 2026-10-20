@@ -1,14 +1,14 @@
 {
-  "name": "ghbdtn",
+  "name": "retype",
   "private": true,
   "version": "0.5.0",
   "type": "module",
   "scripts": {
     "dev": "pnpm layoutdll && vite",
     "build": "pnpm layoutdll && tsc && vite build",
-    "layoutdll": "cargo build --release --manifest-path src-tauri/Cargo.toml -p ghbdtn-layout",
+    "layoutdll": "cargo build --release --manifest-path src-tauri/Cargo.toml -p retype-layout",
     "tauri": "tauri",
-    "live": "cargo run --release --manifest-path src-tauri/Cargo.toml -p ghbdtn-core --example live",
+    "live": "cargo run --release --manifest-path src-tauri/Cargo.toml -p retype-core --example live",
     "check": "tsc --noEmit && pnpm layoutdll && cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml --workspace",
     "release": "ship release",
     "ship": "ship"

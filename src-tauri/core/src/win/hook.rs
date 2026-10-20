@@ -408,9 +408,9 @@ fn uninstall(hooks: (Option<HHOOK>, Option<HHOOK>)) {
 
 pub fn run(tx: Sender<HookEvent>) -> std::thread::JoinHandle<()> {
     let _ = SENDER.set(tx);
-    ACCEPT_TEST.store(std::env::var_os("GHBDTN_ACCEPT_TEST_INPUT").is_some_and(|v| v == "1"), SeqCst);
+    ACCEPT_TEST.store(std::env::var_os("RETYPE_ACCEPT_TEST_INPUT").is_some_and(|v| v == "1"), SeqCst);
     std::thread::Builder::new()
-        .name("ghbdtn-hook".into())
+        .name("retype-hook".into())
         .spawn(|| unsafe {
             HOOK_THREAD.store(GetCurrentThreadId(), SeqCst);
             LAST_TICK.store(GetTickCount(), SeqCst);
@@ -440,7 +440,7 @@ pub fn run(tx: Sender<HookEvent>) -> std::thread::JoinHandle<()> {
         .expect("hook thread")
 }
 
-pub const WATCH_CLASS: PCWSTR = w!("GhbdtnSessionWatch");
+pub const WATCH_CLASS: PCWSTR = w!("RetypeSessionWatch");
 
 fn resumed(msg: u32, wparam: WPARAM) -> bool {
     let code = wparam.0 as u32;

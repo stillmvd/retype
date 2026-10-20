@@ -9,7 +9,7 @@ import "./hub.css";
 
 type Tab = "util" | "trainer";
 
-const KEY = "ghbdtn:hub";
+const KEY = "retype:hub";
 const TABS: [Tab, string][] = [["util", "Утилита"], ["trainer", "Тренажёр"]];
 
 function initial(): Tab {
@@ -42,9 +42,9 @@ export function Hub() {
     <div className="hub">
       <div className="t-titlebar" data-tauri-drag-region>
         <AppMark className="hub-mk" />
-        <span className="name" data-tauri-drag-region>Ghbdtn</span>
+        <span className="name" data-tauri-drag-region>Retype</span>
         <span className="sp" data-tauri-drag-region />
-        <div className="hub-seg" role="tablist" aria-label="Раздел Ghbdtn" onKeyDown={(e) => {
+        <div className="hub-seg" role="tablist" aria-label="Раздел Retype" onKeyDown={(e) => {
           if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
           const next = tab === "util" ? "trainer" : "util";
           setTab(next);

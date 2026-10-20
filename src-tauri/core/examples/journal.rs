@@ -1,4 +1,4 @@
-use ghbdtn_core::config::Config;
+use retype_core::config::Config;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -75,7 +75,7 @@ fn main() {
             }
         }
     }
-    println!("# Журнал Ghbdtn: {} дн., {}", files.len(), dir.display());
+    println!("# Журнал Retype: {} дн., {}", files.len(), dir.display());
     top("Действия", &kinds, 20);
     top("Отменены Ctrl+Backspace (ложные исправления)", &undone, 40);
     top("Стёрто сразу после исправления и перепечатано (ложные, с правильным словом)", &wrong, 40);

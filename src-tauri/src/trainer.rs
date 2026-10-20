@@ -1,9 +1,9 @@
 use crate::journal::Journal;
-use ghbdtn_core::config::Config;
-use ghbdtn_core::fingers::{self, FingerSession, Fingers, View};
-use ghbdtn_core::material::{self, Item};
-use ghbdtn_core::trainer::{self, History, Pause, Session, State, Typing};
-use ghbdtn_core::win::Engine;
+use retype_core::config::Config;
+use retype_core::fingers::{self, FingerSession, Fingers, View};
+use retype_core::material::{self, Item};
+use retype_core::trainer::{self, History, Pause, Session, State, Typing};
+use retype_core::win::Engine;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -205,7 +205,7 @@ impl Store {
         let _io = self.io.lock().unwrap();
         let date = today();
         let history = self.history();
-        let pause = Pause { away_secs, locked_secs, fullscreen: ghbdtn_core::win::context::current().fullscreen, enabled: true };
+        let pause = Pause { away_secs, locked_secs, fullscreen: retype_core::win::context::current().fullscreen, enabled: true };
         if !trainer::should_remind(&history, &fingers::done_dates(&self.fingers()), &date, &pause) {
             return None;
         }

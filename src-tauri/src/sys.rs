@@ -121,14 +121,15 @@ pub fn set_autostart(on: bool) -> Result<(), String> {
         return Ok(());
     }
     unsafe {
+        let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN, w!("Ghbdtn"));
         if on {
             let exe = std::env::current_exe().map_err(|e| e.to_string())?;
             let value = wide(&format!("\"{}\"", exe.display()));
-            RegSetKeyValueW(HKEY_CURRENT_USER, RUN, w!("Ghbdtn"), REG_SZ.0, Some(value.as_ptr().cast()), (value.len() * 2) as u32)
+            RegSetKeyValueW(HKEY_CURRENT_USER, RUN, w!("Retype"), REG_SZ.0, Some(value.as_ptr().cast()), (value.len() * 2) as u32)
                 .ok()
                 .map_err(|e| e.message())
         } else {
-            let r = RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN, w!("Ghbdtn"));
+            let r = RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN, w!("Retype"));
             if r.is_ok() || r.0 == 2 { Ok(()) } else { Err(r.to_hresult().message()) }
         }
     }

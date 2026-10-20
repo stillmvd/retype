@@ -1,11 +1,11 @@
 [package]
-name = "ghbdtn-layout"
+name = "retype-layout"
 version = "0.1.0"
 edition = "2021"
 description = "Смена раскладки изнутри потока окна"
 
 [lib]
-name = "ghbdtn_layout"
+name = "retype_layout"
 crate-type = ["cdylib"]
 
 [target.'cfg(windows)'.dependencies]

@@ -1,11 +1,11 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="brand/logo/lockup-on-dark.svg">
-    <img src="brand/logo/lockup.svg" alt="Ghbdtn" height="64">
+    <img src="brand/logo/lockup.svg" alt="Retype" height="64">
   </picture>
 </p>
 
-Ghbdtn — утилита для Windows 11. Исправляет слова, набранные не в той раскладке, и опечатки — сразу после пробела.
+Retype — утилита для Windows 11 (раньше называлась Ghbdtn). Исправляет слова, набранные не в той раскладке, и опечатки — сразу после пробела.
 
 - `ghbdtn vbh` → `привет мир`, `сщву` → `code` — раскладка переключается сама.
 - `ввожа клавиатра` → `ввода клавиатура` — опечатки по словарю и соседним словам.
@@ -18,7 +18,7 @@ Ghbdtn — утилита для Windows 11. Исправляет слова, н
 
 ## Установка
 
-Установщик — на странице [Releases](https://github.com/stillmvd/ghbdtn/releases). Обновления приходят сами.
+Установщик — на странице [Releases](https://github.com/stillmvd/retype/releases). Обновления приходят сами.
 
 ## Разработка
 

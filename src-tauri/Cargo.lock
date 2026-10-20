@@ -1335,45 +1335,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ghbdtn"
-version = "0.5.0"
-dependencies = [
- "crossbeam-channel",
- "ghbdtn-core",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-ship",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "windows",
-]
-
-[[package]]
-name = "ghbdtn-core"
-version = "0.1.0"
-dependencies = [
- "arc-swap",
- "clipboard-win",
- "crossbeam-channel",
- "fst",
- "serde",
- "serde_json",
- "spellbook",
- "toml 1.1.8+spec-1.1.0",
- "windows",
- "zeroize",
-]
-
-[[package]]
-name = "ghbdtn-layout"
-version = "0.1.0"
-dependencies = [
- "windows",
-]
-
-[[package]]
 name = "gio"
 version = "0.18.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3004,6 +2965,45 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
+]
+
+[[package]]
+name = "retype"
+version = "0.5.0"
+dependencies = [
+ "crossbeam-channel",
+ "retype-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-ship",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "windows",
+]
+
+[[package]]
+name = "retype-core"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "clipboard-win",
+ "crossbeam-channel",
+ "fst",
+ "serde",
+ "serde_json",
+ "spellbook",
+ "toml 1.1.8+spec-1.1.0",
+ "windows",
+ "zeroize",
+]
+
+[[package]]
+name = "retype-layout"
+version = "0.1.0"
+dependencies = [
+ "windows",
 ]
 
 [[package]]

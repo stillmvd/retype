@@ -1,5 +1,5 @@
-use ghbdtn_core::keymap::{key_of, Lang};
-use ghbdtn_core::win::{hook, lang, Engine};
+use retype_core::keymap::{key_of, Lang};
+use retype_core::win::{hook, lang, Engine};
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::time::{Duration, Instant};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
@@ -158,14 +158,14 @@ fn main() {
     let target = args.get(1).cloned().unwrap_or_else(|| "external".into());
     let out = args.get(2).cloned().unwrap_or_else(|| format!("rivals-{target}.jsonl"));
     let gap: u64 = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(35);
-    let dir = std::env::temp_dir().join("ghbdtn-rivals");
+    let dir = std::env::temp_dir().join("retype-rivals");
     let _ = std::fs::create_dir_all(&dir);
     let file = format!("rivals-{target}.txt");
     std::fs::write(dir.join(&file), "").unwrap();
     if target == "installed" {
         EXTRA.store(hook::TEST_MARK, SeqCst);
     }
-    let _engine = (target == "ghbdtn").then(|| {
+    let _engine = (target == "retype").then(|| {
         hook::ACCEPT_INJECTED.store(true, SeqCst);
         let cfg = dir.join("config.toml");
         let _ = std::fs::remove_file(&cfg);

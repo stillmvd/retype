@@ -11,7 +11,7 @@ static MESSAGE: AtomicU32 = AtomicU32::new(0);
 fn message() -> u32 {
     match MESSAGE.load(Relaxed) {
         0 => {
-            let m = unsafe { RegisterWindowMessageW(w!("GhbdtnActivateLayout")) };
+            let m = unsafe { RegisterWindowMessageW(w!("RetypeActivateLayout")) };
             MESSAGE.store(m, Relaxed);
             m
         }

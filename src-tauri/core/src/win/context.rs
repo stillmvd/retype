@@ -197,7 +197,7 @@ pub fn run(tx: Sender<HookEvent>) -> std::thread::JoinHandle<()> {
     let _ = SENDER.set(tx);
     let _ = CURRENT.set(arc_swap::ArcSwap::from_pointee(Context::default()));
     std::thread::Builder::new()
-        .name("ghbdtn-context".into())
+        .name("retype-context".into())
         .spawn(|| unsafe {
             refresh();
             let flags = WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS;

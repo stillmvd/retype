@@ -1,6 +1,6 @@
-use ghbdtn_core::config::Config;
-use ghbdtn_core::win::hook::{DROPPED, EVENTS, FIXES, FIX_US_MAX, FIX_US_TOTAL, REINSTALLS, REPLAYED};
-use ghbdtn_core::win::{CoreEvent, Engine};
+use retype_core::config::Config;
+use retype_core::win::hook::{DROPPED, EVENTS, FIXES, FIX_US_MAX, FIX_US_TOTAL, REINSTALLS, REPLAYED};
+use retype_core::win::{CoreEvent, Engine};
 use std::sync::atomic::Ordering::SeqCst;
 use std::time::{Duration, Instant};
 
@@ -17,14 +17,14 @@ fn stats(since: Instant) {
         avg as f64 / 1000.0,
         FIX_US_MAX.load(SeqCst) as f64 / 1000.0
     );
-    println!("  шаги (ср/макс): {}", ghbdtn_core::win::hook::profile());
+    println!("  шаги (ср/макс): {}", retype_core::win::hook::profile());
 }
 
 fn main() {
     let (tx, rx) = crossbeam_channel::unbounded();
     let path = Config::default_path();
     let engine = Engine::start(path.clone(), tx);
-    println!("Ghbdtn core работает. Конфиг: {}. Выход — Ctrl+C в этом окне.", path.display());
+    println!("Retype core работает. Конфиг: {}. Выход — Ctrl+C в этом окне.", path.display());
     let cfg = engine.config();
     println!("Конвертация: {}, выключатель: {}", cfg.hotkeys.convert, cfg.hotkeys.toggle);
     let started = Instant::now();
@@ -39,7 +39,7 @@ fn main() {
             CoreEvent::Acted { kind, rule, .. } => println!("{kind:?} {}", rule.map_or("", |r| r.name())),
             CoreEvent::Undone => println!("undo"),
             CoreEvent::Retyped { fix, .. } => println!("retyped{}", if fix.is_some() { " after fix" } else { "" }),
-            CoreEvent::Status(s) => println!("status: {s:?} ({})", ghbdtn_core::win::context::current().exe),
+            CoreEvent::Status(s) => println!("status: {s:?} ({})", retype_core::win::context::current().exe),
             CoreEvent::NeverAdded(_) => println!("never +1"),
             CoreEvent::WordLearned(_) => println!("learned +1"),
             CoreEvent::ConfigChanged => println!("config saved"),

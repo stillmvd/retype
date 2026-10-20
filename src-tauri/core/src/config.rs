@@ -238,8 +238,20 @@ pub fn normalize_exe(name: &str) -> String {
 
 impl Config {
     pub fn default_path() -> PathBuf {
-        let base = std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
-        base.join("Ghbdtn").join("config.toml")
+        static PATH: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+        PATH.get_or_init(|| {
+            let base = std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+            let (dir, old) = (base.join("Retype"), base.join("Ghbdtn"));
+            let fresh = !dir.join("config.toml").exists();
+            if fresh && old.join("config.toml").exists() {
+                let _ = std::fs::remove_dir(&dir);
+                if std::fs::rename(&old, &dir).is_err() {
+                    return old.join("config.toml");
+                }
+            }
+            dir.join("config.toml")
+        })
+        .clone()
     }
 
     pub fn words_path() -> PathBuf {
@@ -356,7 +368,7 @@ mod tests {
 
     #[test]
     fn round_trip() {
-        let dir = std::env::temp_dir().join(format!("ghbdtn-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("retype-test-{}", std::process::id()));
         let path = dir.join("config.toml");
         let mut cfg = Config::default();
         cfg.add_never("Ghbdtn", NeverSource::Undo);
