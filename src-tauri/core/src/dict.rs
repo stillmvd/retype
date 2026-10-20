@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 const KNOWN_FREQ: u32 = 30;
 const TECH_FREQ: u32 = 1000;
+pub(crate) const TECH_WORDS: &str = include_str!("../data/tech.txt");
 const TERM_FREQ: u32 = 300;
 pub const BIGRAM_SCALE: f64 = 16.0;
 const SUFFIX_SAMPLES: u32 = 3;
@@ -130,7 +131,7 @@ impl Dictionaries {
         let en = Dictionary::new(include_str!("../data/en.aff"), include_str!("../data/en.dic"))
             .expect("en dictionary");
         let mut en_freq = parse_freq(include_str!("../data/en.freq"));
-        for (list, freq) in [(include_str!("../data/tech.txt"), TECH_FREQ), (include_str!("../data/terms.txt"), TERM_FREQ)] {
+        for (list, freq) in [(TECH_WORDS, TECH_FREQ), (include_str!("../data/terms.txt"), TERM_FREQ)] {
             for w in list.lines().map(str::trim).filter(|w| !w.is_empty()) {
                 let f = en_freq.entry(w.into()).or_insert(0);
                 *f = (*f).max(freq);

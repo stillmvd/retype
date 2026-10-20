@@ -98,7 +98,8 @@ fn class_name(hwnd: HWND) -> String {
 const TYPING_APPS: &[&str] = &[
     "firefox.exe", "chrome.exe", "msedge.exe", "brave.exe", "opera.exe", "vivaldi.exe", "yandex.exe", "browser.exe",
     "windowsterminal.exe", "wt.exe", "code.exe", "vscodium.exe", "cursor.exe", "telegram.exe", "bitrix24.exe",
-    "notepad.exe", "explorer.exe",
+    "notepad.exe", "explorer.exe", "zen.exe", "librewolf.exe", "arc.exe", "discord.exe", "slack.exe", "obsidian.exe",
+    "idea64.exe", "webstorm64.exe", "wezterm-gui.exe", "alacritty.exe", "winword.exe", "notepad++.exe",
 ];
 
 fn judge_fullscreen(exe: &str, shell_class: bool, covers_monitor: bool, bordered: bool, d3d: bool, presentation: bool) -> bool {

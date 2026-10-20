@@ -375,7 +375,7 @@ fn tech_pick<'a>(close: &[&'a str], lang: Lang) -> Option<&'a str> {
     if lang != Lang::En {
         return None;
     }
-    let mut found = close.iter().filter(|c| c.len() >= 6 && include_str!("../data/tech.txt").lines().any(|t| t.trim() == **c));
+    let mut found = close.iter().filter(|c| c.len() >= 6 && crate::dict::TECH_WORDS.lines().any(|t| t.trim() == **c));
     found.next().filter(|_| found.next().is_none()).copied()
 }
 
