@@ -1,6 +1,8 @@
 import io
 import math
 import pathlib
+import subprocess
+import tempfile
 
 import uharfbuzz as hb
 from fontTools.pens.svgPathPen import SVGPathPen
@@ -8,53 +10,75 @@ from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 
 HERE = pathlib.Path(__file__).resolve().parent
+TRAY = HERE.parent.parent / "src-tauri/icons/tray"
 FONT = pathlib.Path("C:/Users/stillmvd/Projects/Kockers DS/fonts/KockersSans-Bold.woff2")
+INKSCAPE = "C:/Program Files/Inkscape/bin/inkscape.com"
+
 LIME = "#c6ec5a"
+DEEP = "#4f7a00"
 INK = "#1a2400"
+WHITE = "#ffffff"
 INK_LIGHT = "#17171a"
 INK_DARK = "#ececef"
-SHARE = 0.72
-BASE = dict(w=5.6, serif=6.0, spark=9.0, inner=0.28)
-SMALL = dict(w=6.6, serif=6.6, spark=10.0, inner=0.34)
+
+KEY_W, KEY_H = 31, 40
+BASE = dict(skirt=7, weight=4.6)
+SMALL = dict(skirt=6, weight=5.6)
 
 
-def star(cx, cy, r, inner):
-    pts = []
-    for i in range(8):
-        rr = r if i % 2 == 0 else r * inner
-        a = math.radians(-90 + i * 45)
-        pts.append((cx + rr * math.cos(a), cy + rr * math.sin(a)))
-    return pts
+def arc(cx, cy, r, a0, a1, step=3):
+    n = max(2, int(abs(a1 - a0) / step) + 1)
+    return [(cx + r * math.cos(math.radians(a0 + (a1 - a0) * i / (n - 1))),
+             cy + r * math.sin(math.radians(a0 + (a1 - a0) * i / (n - 1)))) for i in range(n)]
 
 
-def caret(w, serif, spark, inner):
-    lines = [[(0, 4), (0, 34)], [(-serif, 4), (serif, 4)], [(-serif, 34), (serif, 34)]]
-    return lines, star(13, -2, spark, inner), w
+def d(pts, closed=False):
+    return "M" + " L".join(f"{x:.2f} {y:.2f}" for x, y in pts) + (" Z" if closed else "")
 
 
-def bounds(lines, spark, w):
-    h = w / 2
-    xs = [x + d for line in lines for x, _ in line for d in (-h, h)] + [x for x, _ in spark]
-    ys = [y + d for line in lines for _, y in line for d in (-h, h)] + [y for _, y in spark]
-    return min(xs), min(ys), max(xs), max(ys)
+def rrect(x, y, w, h, r):
+    r = min(r, w / 2, h / 2)
+    return (arc(x + w - r, y + r, r, -90, 0) + arc(x + w - r, y + h - r, r, 0, 90)
+            + arc(x + r, y + h - r, r, 90, 180) + arc(x + r, y + r, r, 180, 270))
 
 
-def glyph(shape, size, color, cx=32.0, cy=32.0):
-    lines, spark, w = shape
-    x0, y0, x1, y1 = bounds(lines, spark, w)
-    s = size / max(x1 - x0, y1 - y0)
-
-    def pt(x, y):
-        return f"{cx + s * (x - (x0 + x1) / 2):.2f} {cy + s * (y - (y0 + y1) / 2):.2f}"
-
-    d = "".join("M" + "L".join(pt(x, y) for x, y in line) for line in lines)
-    star_d = "M" + "L".join(pt(x, y) for x, y in spark) + "Z"
-    return (f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{w * s:.2f}" stroke-linecap="round"/>'
-            f'<path d="{star_d}" fill="{color}" stroke="{color}" stroke-width="{0.8 * s:.2f}" stroke-linejoin="round"/>')
+def fill(pts, color):
+    return f'<path d="{d(pts, True)}" fill="{color}"/>'
 
 
-def mark_body(shape, r=32.0, cx=32.0, cy=32.0):
-    return f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{LIME}"/>' + glyph(shape, 2 * r * SHARE, INK, cx, cy)
+def stroke(paths, w, color):
+    return "".join(f'<path d="{p}" fill="none" stroke="{color}" stroke-width="{w:.2f}" '
+                   f'stroke-linecap="round" stroke-linejoin="round"/>' for p in paths)
+
+
+def letter_r(x, y, w, h):
+    mid = y + h * 0.54
+    r = (mid - y) / 2
+    bowl = [(x, y), (x + w - r, y)] + arc(x + w - r, y + r, r, -90, 90) + [(x, mid)]
+    return [d([(x, y), (x, y + h)]), d(bowl), d([(x + w * 0.42, mid), (x + w, y + h)])]
+
+
+def letter_ya(x, y, w, h):
+    mid = y + h * 0.54
+    r = (mid - y) / 2
+    right = x + w
+    bowl = [(right, y), (x + r, y)] + arc(x + r, y + r, r, -90, -270) + [(right, mid)]
+    return [d([(right, y), (right, y + h)]), d(bowl), d([(right - w * 0.42, mid), (x, y + h)])]
+
+
+def key(x, y, body, face, letter, ink, skirt, weight):
+    fw, fh = KEY_W - 6, KEY_H - skirt - 2
+    lw, lh = fw * 0.46, fh * 0.6
+    glyph = letter(x + 3 + (fw - lw) / 2, y + 2 + (fh - lh) / 2, lw, lh)
+    return (fill(rrect(x, y, KEY_W, KEY_H, 10), body) + fill(rrect(x + 3, y + 2, fw, fh, 7), face)
+            + stroke(glyph, weight, ink))
+
+
+def mark_body(skirt, weight, mono=None):
+    if mono:
+        return fill(rrect(4, 60 - KEY_H, KEY_W, KEY_H, 10), mono) + fill(rrect(60 - KEY_W, 4, KEY_W, KEY_H, 10), mono)
+    return (key(4, 60 - KEY_H, DEEP, LIME, letter_ya, INK, skirt, weight)
+            + key(60 - KEY_W, 4, INK, WHITE, letter_r, INK, skirt, weight))
 
 
 def document(body, view="0 0 64 64", width=64, height=64):
@@ -83,31 +107,60 @@ def word(text, cap, x, baseline):
     return pen.getCommands(), pen_x * k
 
 
-def lockup(shape, ink):
-    mark_h = 40.0
-    cap = mark_h * 0.6
-    gap = mark_h * 0.36
-    d, word_w = word("Ghbdtn", cap, 12 + mark_h + gap, 32 + cap / 2)
-    width = 12 + mark_h + gap + word_w + 12
-    body = mark_body(shape, mark_h / 2, 12 + mark_h / 2, 32) + f'<path d="{d}" fill="{ink}"/>'
+def lockup(ink):
+    cap = 26.0
+    gap = 14.0
+    d_word, word_w = word("Retype", cap, 64 + gap, 32 + cap / 2)
+    width = 64 + gap + word_w + 8
+    body = mark_body(**BASE) + f'<path d="{d_word}" fill="{ink}"/>'
     return document(body, f"0 0 {width:.2f} 64", f"{width:.2f}", 64)
 
 
+TRAY_LOOKS = {
+    "dark": {"on": (LIME, None, INK), "mute": ("#a2a2a9", None, "#141416"), "off": (None, "#8a8a92", "#8a8a92"),
+             "blink": (WHITE, None, "#141416")},
+    "light": {"on": (DEEP, None, WHITE), "mute": ("#3a3a40", None, WHITE), "off": (None, "#6b6b73", "#6b6b73"),
+              "blink": (INK_LIGHT, None, WHITE)},
+}
+
+
+def plate(text, plate_fill, outline, ink):
+    shape = (fill(rrect(0, 0, 32, 32, 7), plate_fill) if plate_fill
+             else f'<path d="{d(rrect(1.4, 1.4, 29.2, 29.2, 5.8), True)}" fill="none" stroke="{outline}" stroke-width="2.8"/>')
+    cap = 13.0
+    d_word, w = word(text, cap, 0, 0)
+    x = (32 - w) / 2
+    d_word, _ = word(text, cap, x, 16 + cap / 2)
+    return document(shape + f'<path d="{d_word}" fill="{ink}"/>', "0 0 32 32", 32, 32)
+
+
+def tray():
+    with tempfile.TemporaryDirectory() as tmp:
+        for theme, looks in TRAY_LOOKS.items():
+            for look, colors in looks.items():
+                for lang in ("ru", "en"):
+                    src = pathlib.Path(tmp) / f"{theme}-{look}-{lang}.svg"
+                    src.write_text(plate(lang.upper(), *colors), encoding="utf-8")
+                    out = TRAY / f"{theme}-{look}-{lang}.png"
+                    subprocess.run([INKSCAPE, str(src),
+                                    f"--actions=export-filename:{out};export-width:32;export-height:32;export-do"],
+                                   check=True, capture_output=True, timeout=180)
+
+
 def main():
-    base = caret(**BASE)
-    small = caret(**SMALL)
     files = {
-        "mark.svg": document(mark_body(base)),
-        "mark-small.svg": document(mark_body(small)),
-        "mark-mono.svg": document(glyph(base, 58, "currentColor")),
-        "favicon.svg": document(mark_body(small)),
-        "app-icon.svg": document(mark_body(base), width=1024, height=1024),
-        "lockup.svg": lockup(base, INK_LIGHT),
-        "lockup-on-dark.svg": lockup(base, INK_DARK),
+        "mark.svg": document(mark_body(**BASE)),
+        "mark-small.svg": document(mark_body(**SMALL)),
+        "mark-mono.svg": document(mark_body(**BASE, mono="currentColor")),
+        "favicon.svg": document(mark_body(**SMALL)),
+        "app-icon.svg": document(mark_body(**BASE), width=1024, height=1024),
+        "lockup.svg": lockup(INK_LIGHT),
+        "lockup-on-dark.svg": lockup(INK_DARK),
     }
     for name, markup in files.items():
         (HERE / name).write_text(markup, encoding="utf-8")
-    print("SVG:", ", ".join(files))
+    tray()
+    print("SVG:", ", ".join(files), "· трей:", TRAY)
 
 
 if __name__ == "__main__":
