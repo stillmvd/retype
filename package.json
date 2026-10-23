@@ -18,7 +18,7 @@
     "kockers-ds": "link:..\\..\\Kockers DS",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "@stillmvd/tauri-ship": "github:stillmvd/tauri-ship#v0.1.1"
+    "@stillmvd/tauri-ship": "github:stillmvd/tauri-ship#v0.1.2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.5",
