@@ -50,11 +50,19 @@ pub enum Status {
     Silent(SilentReason),
 }
 
+fn real_caps() -> bool {
+    (unsafe { GetKeyState(VK_CAPITAL.0 as i32) } & 1) != 0
+}
+
+fn caps_toggle_needed(rule: Rule, caps_on: bool) -> bool {
+    rule == Rule::CapsLock && caps_on
+}
+
 #[derive(Clone, Debug)]
 pub enum CoreEvent {
     Acted { kind: ActionKind, rule: Option<Rule>, typed: String, result: String },
     Undone,
-    Status(Status),
+    Status(Status, String),
     Retyped { before: String, after: String, fix: Option<(String, String)> },
     NeverAdded(String),
     WordLearned(String),
@@ -224,7 +232,7 @@ impl Worker {
             ctx: None,
             learning: HashMap::new(),
             book: UndoBook::default(),
-            caps: unsafe { GetKeyState(VK_CAPITAL.0 as i32) } & 1 != 0,
+            caps: real_caps(),
             batch: output::Batch::default(),
             fix_started: None,
             mode: Mode::Normal,
@@ -301,7 +309,7 @@ impl Worker {
         self.batch.insert = self.program.insert;
         if self.status != Some(status) {
             self.status = Some(status);
-            self.emit(CoreEvent::Status(status));
+            self.emit(CoreEvent::Status(status, ctx.exe.clone()));
         }
         (status, mode)
     }
@@ -485,9 +493,20 @@ impl Worker {
         }
     }
 
+    fn sync_caps(&mut self) {
+        if !self.batch.is_empty() {
+            return;
+        }
+        self.caps = real_caps();
+        self.batch.caps = self.caps;
+    }
+
     fn key(&mut self, k: RawKey) {
         let vk = VIRTUAL_KEY(k.vk);
         let cfg = self.cfg();
+        if vk != VK_CAPITAL && !k.held {
+            self.sync_caps();
+        }
         if k.eaten {
             if hook::HK_TOGGLE.load(SeqCst) == hook_code(&k) {
                 let mut c = (*cfg).clone();
@@ -693,8 +712,9 @@ impl Worker {
                     hook::SWITCH.time(|| lang::switch_with(to, &self.program));
                     hook::set_lang(Some(to));
                 }
+                self.sync_caps();
                 self.batch.rewrite(&(typed_all.clone() + &sep_typed), &(result_all.clone() + &sep_out));
-                if fix.rule == Rule::CapsLock && self.caps {
+                if caps_toggle_needed(fix.rule, self.caps) {
                     self.batch.toggle_caps();
                     self.caps = false;
                     self.batch.caps = false;
@@ -889,6 +909,13 @@ fn hook_code(k: &RawKey) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn caps_pressed_only_when_really_on() {
+        assert!(caps_toggle_needed(Rule::CapsLock, true));
+        assert!(!caps_toggle_needed(Rule::CapsLock, false));
+        assert!(!caps_toggle_needed(Rule::Best, true));
+    }
 
     fn raw(vk: VIRTUAL_KEY, ctrl: bool, alt: bool, win: bool) -> RawKey {
         RawKey {

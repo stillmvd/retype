@@ -526,7 +526,10 @@ fn pump(app: AppHandle, s: S, rx: crossbeam_channel::Receiver<CoreEvent>) {
                     journal::Entry::Retyped { before, after, fix: fix.as_ref().map(|(a, b)| (a.as_str(), b.as_str())) },
                 ),
                 CoreEvent::NeverAdded(word) => s.journal.write(app, journal::Entry::Never { word }),
-                CoreEvent::Status(Status::Silent(r)) if *r != SilentReason::Own => s.journal.write(app, journal::Entry::Silent { reason: reason(*r) }),
+                CoreEvent::Status(Status::Silent(r), exe) if *r != SilentReason::Own => {
+                    let label = Some(if exe.is_empty() { "?" } else { exe.as_str() });
+                    s.journal.write(label, journal::Entry::Silent { reason: reason(*r) })
+                }
                 _ => {}
             }
         }
@@ -541,7 +544,7 @@ fn pump(app: AppHandle, s: S, rx: crossbeam_channel::Receiver<CoreEvent>) {
                 let _ = s.hints.send(overlay::Hint { typed, result, signals: cfg.signals.clone() });
                 let _ = app.emit("status", ());
             }
-            CoreEvent::Status(st) => {
+            CoreEvent::Status(st, _) => {
                 *s.status.lock().unwrap() = st;
                 refresh(&s);
                 let _ = app.emit("status", ());

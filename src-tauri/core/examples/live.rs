@@ -39,7 +39,7 @@ fn main() {
             CoreEvent::Acted { kind, rule, .. } => println!("{kind:?} {}", rule.map_or("", |r| r.name())),
             CoreEvent::Undone => println!("undo"),
             CoreEvent::Retyped { fix, .. } => println!("retyped{}", if fix.is_some() { " after fix" } else { "" }),
-            CoreEvent::Status(s) => println!("status: {s:?} ({})", retype_core::win::context::current().exe),
+            CoreEvent::Status(s, _) => println!("status: {s:?} ({})", retype_core::win::context::current().exe),
             CoreEvent::NeverAdded(_) => println!("never +1"),
             CoreEvent::WordLearned(_) => println!("learned +1"),
             CoreEvent::ConfigChanged => println!("config saved"),

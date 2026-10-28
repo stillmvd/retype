@@ -3,7 +3,7 @@ use crossbeam_channel::Sender;
 use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
 use std::sync::OnceLock;
 use windows::core::BOOL;
-use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{CloseHandle, ERROR_ACCESS_DENIED, HANDLE, HWND, LPARAM, RECT};
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
@@ -77,12 +77,22 @@ fn token_elevated(process: HANDLE) -> Option<bool> {
     }
 }
 
+fn access_denied(e: &windows::core::Error) -> bool {
+    e.code() == windows::core::HRESULT::from_win32(ERROR_ACCESS_DENIED.0)
+}
+
 fn elevated(pid: u32) -> bool {
+    if pid == 0 {
+        return true;
+    }
     if token_elevated(unsafe { GetCurrentProcess() }) == Some(true) {
         return false;
     }
     unsafe {
-        let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else { return true };
+        let h = match OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) {
+            Ok(h) => h,
+            Err(e) => return access_denied(&e),
+        };
         let r = token_elevated(h).unwrap_or(true);
         let _ = CloseHandle(h);
         r
@@ -102,11 +112,22 @@ const TYPING_APPS: &[&str] = &[
     "idea64.exe", "webstorm64.exe", "wezterm-gui.exe", "alacritty.exe", "winword.exe", "notepad++.exe",
 ];
 
-fn judge_fullscreen(exe: &str, shell_class: bool, covers_monitor: bool, bordered: bool, d3d: bool, presentation: bool) -> bool {
+#[derive(Clone, Copy)]
+struct Frame {
+    shell_class: bool,
+    covers_monitor: bool,
+    bordered: bool,
+    maximized: bool,
+    d3d: bool,
+    presentation: bool,
+}
+
+fn judge_fullscreen(exe: &str, f: &Frame) -> bool {
+    let Frame { shell_class, covers_monitor, bordered, maximized, d3d, presentation } = *f;
     if presentation {
         return true;
     }
-    if shell_class || !covers_monitor || TYPING_APPS.contains(&exe) {
+    if shell_class || !covers_monitor || TYPING_APPS.contains(&exe) || (maximized && !d3d) {
         return false;
     }
     d3d || !bordered
@@ -125,7 +146,8 @@ fn fullscreen(hwnd: HWND, exe: &str) -> bool {
         let mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         GetWindowRect(hwnd, &mut rect).is_ok() && GetMonitorInfoW(mon, &mut info).as_bool() && rect == info.rcMonitor
     };
-    judge_fullscreen(exe, shell_class, covers_monitor, bordered, d3d, presentation)
+    let maximized = unsafe { IsZoomed(hwnd) }.as_bool();
+    judge_fullscreen(exe, &Frame { shell_class, covers_monitor, bordered, maximized, d3d, presentation })
 }
 
 fn password(focus: HWND) -> bool {
@@ -214,31 +236,52 @@ pub fn run(tx: Sender<HookEvent>) -> std::thread::JoinHandle<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::judge_fullscreen as j;
+    use super::{access_denied, judge_fullscreen, Frame};
+
+    const BASE: Frame =
+        Frame { shell_class: false, covers_monitor: true, bordered: false, maximized: false, d3d: false, presentation: false };
+
+    fn j(exe: &str, f: Frame) -> bool {
+        judge_fullscreen(exe, &f)
+    }
 
     #[test]
     fn game_on_other_monitor_does_not_mute() {
-        assert!(!j("code.exe", false, false, true, true, false));
-        assert!(!j("somewindow.exe", false, false, true, true, false));
+        assert!(!j("code.exe", Frame { covers_monitor: false, bordered: true, d3d: true, ..BASE }));
+        assert!(!j("somewindow.exe", Frame { covers_monitor: false, bordered: true, d3d: true, ..BASE }));
     }
 
     #[test]
     fn real_fullscreen_mutes() {
-        assert!(j("dota2.exe", false, true, false, false, false));
-        assert!(j("game.exe", false, true, true, true, false));
-        assert!(j("mpc-hc64.exe", false, true, false, false, false));
+        assert!(j("dota2.exe", BASE));
+        assert!(j("game.exe", Frame { bordered: true, d3d: true, ..BASE }));
+        assert!(j("mpc-hc64.exe", BASE));
     }
 
     #[test]
-    fn maximized_and_typing_apps_stay_active() {
-        assert!(!j("game.exe", false, true, true, false, false));
-        assert!(!j("firefox.exe", false, true, false, false, false));
-        assert!(!j("windowsterminal.exe", false, true, false, true, false));
-        assert!(!j("x.exe", true, true, false, false, false));
+    fn bordered_and_typing_apps_stay_active() {
+        assert!(!j("game.exe", Frame { bordered: true, ..BASE }));
+        assert!(!j("firefox.exe", BASE));
+        assert!(!j("windowsterminal.exe", Frame { d3d: true, ..BASE }));
+        assert!(!j("x.exe", Frame { shell_class: true, ..BASE }));
+    }
+
+    #[test]
+    fn maximized_borderless_app_stays_active() {
+        assert!(!j("echo-studio.exe", Frame { maximized: true, ..BASE }));
+        assert!(j("game.exe", Frame { maximized: true, d3d: true, ..BASE }));
     }
 
     #[test]
     fn presentation_mode_always_mutes() {
-        assert!(j("firefox.exe", false, false, true, false, true));
+        assert!(j("firefox.exe", Frame { covers_monitor: false, bordered: true, presentation: true, ..BASE }));
+    }
+
+    #[test]
+    fn only_access_denied_counts_as_elevated() {
+        use windows::core::{Error, HRESULT};
+        assert!(access_denied(&Error::from_hresult(HRESULT::from_win32(5))));
+        assert!(!access_denied(&Error::from_hresult(HRESULT::from_win32(87))));
     }
 }
+
